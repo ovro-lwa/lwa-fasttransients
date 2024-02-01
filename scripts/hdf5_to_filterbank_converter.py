@@ -22,7 +22,7 @@ def convert_hdf5_to_filterbank(name, nstart):
         tsart = timestamp_to_mjd(observation['time'])[0]
         tuning = observation['Tuning1']
         fr1 = tuning['freq'][0] / 1e6
-        foff = (tuning['freq'][1] - fr1) / 1e6
+        foff = (tuning['freq'][1] - tuning['freq'][0]) / 1e6
         XX_data = tuning['XX'][:]
         YY_data = tuning['YY'][:]
         I_data = XX_data + YY_data
