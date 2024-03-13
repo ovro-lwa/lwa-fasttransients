@@ -57,7 +57,7 @@ def prepare_header(name, RA, Dec, nchans, tsamp, num_samples, tstart, fr1, foff)
     src_dej = coord.dec.degree  # Dec in degrees as a float
 
     header_params = {
-        "rawdatafile": "foo.fil", #TBD
+        "rawdatafile": name.replace('.hdf5', '.fil'),
         "source_name": "bar",  # Assuming 'bar' is a placeholder; adjust as needed
         "nchans": nchans,
         "foff": foff,
@@ -109,15 +109,14 @@ def convert_hdf5_to_filterbank(name, RA, Dec):
         header_params = prepare_header(name, RA, Dec, nchans, tsamp, num_samples, tstart, fr1, foff)
 
         sigproc_object = make_sigproc_object(**header_params)
-        sigproc_object.write_header("foo.fil")
+        sigproc_object.write_header(name.replace('.hdf5', '.fil'))
 
         for start_idx in range(0, num_samples, chunk_size):
             end_idx = min(start_idx + chunk_size, num_samples)
             I_data_chunk = I_dataset[start_idx:end_idx, :]
-            print(np.max(I_data_chunk), np.min(I_data_chunk))
             # Process and write the chunk
             data_chunk = I_data_chunk[:, ::-1].astype(np.float32)  # Reverse and type convert
-            sigproc_object.append_spectra(data_chunk, "foo.fil")
+            sigproc_object.append_spectra(data_chunk, name.replace('.hdf5', '.fil'))
 
 
 
