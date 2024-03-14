@@ -31,13 +31,16 @@ After preparing your JSON data file, you can run the search pipeline to process 
 
 #### Usage:
 
-```
-python search_pipeline.py <path_to_json_file> <source_number>
+
+```bash
+python search_pipeline.py <path_to_json_file> <source_number> --checkpoint <path_to_checkpoint_file>
 ```
 
 Arguments:
 - `<path_to_json_file>`: Path to the JSON file containing the metadata.
 - `<source_number>`: The index of the source in the JSON file to process.
+- `--checkpoint`: (Optional) Path to the checkpoint file. If this file exists, the pipeline resumes from the last saved state. If it does not exist, the pipeline starts from the beginning, and the state will be saved to this file for future resumptions.
+
 
 ## Pipeline Steps
 
@@ -46,6 +49,10 @@ Arguments:
 2. **RFI Filtering**: Applies RFI filtering on the `.fil` file, creating a bad channels mask.
 
 3. **Heimdall Processing**: Runs the Heimdall software for transient detection on the RFI-filtered `.fil` file.
+
+4. **Candidate Analysis**: Analyzes the output from Heimdall to aggregate candidate detections into a summary CSV file.
+
+
 
 ## Configuration
 

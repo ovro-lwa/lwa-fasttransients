@@ -3,3 +3,4 @@ ChannelizeScriptPath = PATH_TO_CHANNELIZE_SCRIPT
 HDF5ConversionScriptPath = PATH_TO_HDF5_CONVERSION_SCRIPT
 HDFToFilScriptPath = PATH_TO_HDF_TO_FIL_SCRIPT
 HeimdallBinaryPath = PATH_TO_HEIMDALL 
+CandCsvMakerScript = PATH TO candcsvmaker.py
