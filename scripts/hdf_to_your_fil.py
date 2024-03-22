@@ -90,6 +90,10 @@ def convert_hdf5_to_filterbank(name, RA, Dec):
         RA (float): RA coordinate.
         Dec (float): Dec coordinate.
     """
+    # Check if the file has a .hdf5 extension
+    if not name.endswith('.hdf5'):
+        raise ValueError("The file must have a .hdf5 extension")
+    
     with h5py.File(name, 'r') as f:
         observation = f['Observation1']
         nchans = observation.attrs['nChan']
