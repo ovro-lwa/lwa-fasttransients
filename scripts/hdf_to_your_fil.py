@@ -5,7 +5,7 @@ import numpy as np
 import argparse
 import datetime
 from your.formats.filwriter import make_sigproc_object
-
+import tqdm
 
 
 chunk_size = 100000
@@ -115,7 +115,7 @@ def convert_hdf5_to_filterbank(name, RA, Dec):
         sigproc_object = make_sigproc_object(**header_params)
         sigproc_object.write_header(name.replace('.hdf5', '.fil'))
 
-        for start_idx in range(0, num_samples, chunk_size):
+        for start_idx in tqdm(range(0, num_samples, chunk_size), desc="Processing chunks"):
             end_idx = min(start_idx + chunk_size, num_samples)
             I_data_chunk = I_dataset[start_idx:end_idx, :]
             # Process and write the chunk
