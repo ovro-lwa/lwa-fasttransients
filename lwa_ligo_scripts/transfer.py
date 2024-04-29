@@ -1,48 +1,48 @@
 import subprocess
 import os
-import re
+import json
 import argparse
-def transfer_and_rename_files(remote_host, remote_path, local_path, name_pattern, final_suffix):
-    # Execute the rsync command with wildcard to transfer all matching files
-    rsync_cmd = [
-        'rsync', '-avh', '--progress', '-e',
-        'ssh -o StrictHostKeyChecking=no',
-        f"{remote_host}:{remote_path}/{name_pattern}*",
-        local_path
-    ]
+from concurrent.futures import ThreadPoolExecutor
+
+def load_config(file_path):
+    """ Load GPU addresses from a JSON configuration file """
+    with open(file_path, 'r') as file:
+        return json.load(file)
+
+def setup_directories(base_path, gpu_addresses):
+    """ Create the directory structure for each GPU """
+    for gpu in gpu_addresses:
+        for data_path in ['data0', 'data1']:
+            dir_path = os.path.join(base_path, gpu, data_path)
+            os.makedirs(dir_path, exist_ok=True)
+
+def transfer_file(gpu, address, data_index, name_base, base_path):
+    """ Function to transfer files for one GPU and data index """
+    local_dir = os.path.join(base_path, gpu, data_index)
+    remote_path = f"ubuntu@{address}:/{data_index}/{name_base}*"
+    rsync_cmd = ['rsync', '-av', '--progress', remote_path, local_dir]
     subprocess.run(rsync_cmd)
+    print(f"Files transferred to {local_dir}")
 
-    # After transfer, rename files based on matching pattern
-    for filename in os.listdir(local_path):
-        if re.match(name_pattern, filename):
-            # Construct the final filename with the appropriate suffix
-            new_filename = f"{filename}.{final_suffix}"
-            new_file_path = os.path.join(local_path, new_filename)
-            original_file_path = os.path.join(local_path, filename)
+def transfer_files(name_base, base_path, gpu_addresses):
+    """ Transfer files from remote GPUs to the local directory structure using 'ubuntu' as the SSH username """
+    with ThreadPoolExecutor(max_workers=len(gpu_addresses)) as executor:
+        for gpu, address in gpu_addresses.items():
+            for data_index in ['data0', 'data1']:
+                executor.submit(transfer_file, gpu, address, data_index, name_base, base_path)
 
-            # Check if the renamed version exists before renaming
-            if not os.path.exists(new_file_path):
-                os.rename(original_file_path, new_file_path)
-                print(f"Renamed {filename} to {new_filename} successfully.")
-            else:
-                print(f"{new_filename} already exists. Skipping renaming.")
 
 def main():
-    parser = argparse.ArgumentParser(description='Transfer and rename files from remote host to local directory.')
-    parser.add_argument('remote_host', type=str, help='Remote host address')
-    parser.add_argument('remote_path', type=str, help='Remote path to the directory containing the files')
-    parser.add_argument('local_path', type=str, help='Local path to the directory where files will be transferred')
-    parser.add_argument('name_pattern', type=str, help='Pattern to match the filenames')
+    parser = argparse.ArgumentParser(description='Transfer files from remote GPUs to local directories.')
+    parser.add_argument('--config', type=str, required=True, help='Path to the JSON configuration file')
+    parser.add_argument('--name_base', type=str, required=True, help='Base name of the files to transfer')
     args = parser.parse_args()
 
-    hosts_range = range(1, 9)
+    base_path = os.getcwd()  # Base path is the current working directory
+    gpu_addresses = load_config(args.config)
+    setup_directories(base_path, gpu_addresses)
+    transfer_files(args.name_base, base_path, gpu_addresses)
 
-    for i in hosts_range:
-        remote_host = args.remote_host.replace('01', f'{i:02d}')
-        # Loop over /data0 and /data1 directories
-        for data_index, data_path in enumerate(['/data0', '/data1']):
-            final_suffix = f"{i}{data_index}"  # Construct the suffix based on host index and data path
-            transfer_and_rename_files(remote_host, data_path, args.local_path, args.name_pattern, final_suffix)
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
+
