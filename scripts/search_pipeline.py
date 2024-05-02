@@ -95,7 +95,9 @@ class LWA_Transient_Pipeline:
             int: The number of frequency channels.
         """
         # TODO: Implement the logic to determine the number of frequency channels based on the DM
-        num_channels = np.ceil(19.6/(np.sqrt(1/(8.3*dm*0.06379880369976164^-3)))) #smearing caluclation, to be checked
+        num_channels = np.ceil(19.6/(np.sqrt(1/(8.3*dm*0.06379880369976164**-3)))) #smearing caluclation, to be checked
+        num_channels = int(num_channels)
+        num_channels = (num_channels + 15) // 16 * 16 # so that heimdall is happy (multiple of 16)
         #num_channels = 8192
         return num_channels
     

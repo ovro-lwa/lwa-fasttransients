@@ -5,7 +5,8 @@ import numpy as np
 import argparse
 import datetime
 from your.formats.filwriter import make_sigproc_object
-import tqdm
+from tqdm import tqdm
+
 
 
 chunk_size = 100000
@@ -108,7 +109,11 @@ def convert_hdf5_to_filterbank(name, RA, Dec):
         fr1 = tuning['freq'][-1] / 1e6  # Central frequency of the first channel in MHz
         foff = (tuning['freq'][-2] - tuning['freq'][-1]) / 1e6 # Channel width in MHz (should be negative in our case)
 
-        I_dataset = tuning['I']
+        if 'I' in tuning:
+            I_dataset = tuning['I']
+        else:
+            XX_dataset = tuning['XX']
+            YY_dataset = tuning['YY']
 
         header_params = prepare_header(name, RA, Dec, nchans, tsamp, num_samples, tstart, fr1, foff)
 
@@ -117,9 +122,18 @@ def convert_hdf5_to_filterbank(name, RA, Dec):
 
         for start_idx in tqdm(range(0, num_samples, chunk_size), desc="Processing chunks"):
             end_idx = min(start_idx + chunk_size, num_samples)
-            I_data_chunk = I_dataset[start_idx:end_idx, :]
+            if 'I' in tuning:
+                I_data_chunk = I_dataset[start_idx:end_idx, :]
+            else:
+                XX_data_chunk = XX_dataset[start_idx:end_idx, :]
+                YY_data_chunk = YY_dataset[start_idx:end_idx, :]
             # Process and write the chunk
-            data_chunk = I_data_chunk[:, ::-1].astype(np.float32)  # Reverse and type convert
+            # Reverse and type convert
+            if 'I' in tuning:
+                data_chunk = I_data_chunk[:, ::-1].astype(np.float32)
+            else:
+                data_chunk = (XX_data_chunk[:, ::-1].astype(np.float32) + YY_data_chunk[:, ::-1].astype(np.float32)) / 2
+
             sigproc_object.append_spectra(data_chunk, name.replace('.hdf5', '.fil'))
 
 
