@@ -77,28 +77,29 @@ class LWA_Transient_Pipeline:
         #TODO: Implement logic to select some predefined frequency range
         # We expect 2 FITS files, one for each Tuning. Currently take the one that contains higher frequencies.
         if len(fits_files) == 2:
-            return fits_files[0]
+            return fits_files[1]
         else:
             logging.error(f"Expected 2 FITS files, found {len(fits_files)}. Check the directory: {current_directory}")
             return None
         
     
     @staticmethod
-    def determine_num_channels(dm):
+    def determine_num_channels(dm, low_freq=63.2 , bw=19.6):
         """
         Determine the number of frequency channels based on the Dispersion Measure (DM).
         
         Args:
-            dm (float): The Dispersion Measure of the source.
+            dm (float): The Dispersion Measure of the source in pc/cm**-3.
+            low_freq (float): The lowest frequency in the band in MHz.
+            bw (float): The bandwidth of the observation in MHz.
             
         Returns:
             int: The number of frequency channels.
         """
-        # TODO: Implement the logic to determine the number of frequency channels based on the DM
-        num_channels = np.ceil(19.6/(np.sqrt(1/(8.3*dm*0.06379880369976164**-3)))) #smearing caluclation, to be checked
+        # The logic to determine the number of frequency channels based on the DM
+        num_channels = np.ceil(np.sqrt(8.3*bw**2*(low_freq/1000)**-3*dm)) #smearing caluclation
         num_channels = int(num_channels)
         num_channels = (num_channels + 15) // 16 * 16 # so that heimdall is happy (multiple of 16)
-        #num_channels = 8192
         return num_channels
     
     @staticmethod
@@ -141,6 +142,9 @@ class LWA_Transient_Pipeline:
 
         dm_h=(obs_len*10**3/4.15)*(1/((1/f_low**2)-(1/f_high**2)))
 
+        logging.info("DM threshold is "+str(dm_h)+" pc/cm^3")
+        logging.info("Provided DM is "+str(dm)+" pc/cm^3")
+
         if dm >= dm_h:
             logging.error("Invalid Dispersion Measure (DM). DM should be less than the calculated DM threshold.")
 
@@ -155,7 +159,7 @@ class LWA_Transient_Pipeline:
                 np.max([(2 ** np.ceil(np.log2(dispersion_delay_samples))), 2**18])
             )
 
-        boxcar_max=int(50e-3 / your_object.your_header.tsamp)
+        boxcar_max=int(50e-3 / your_object.your_header.tsamp) #TODO: check if this is the correct value
 
         return nsamps_gulp, boxcar_max
 
@@ -242,7 +246,7 @@ class LWA_Transient_Pipeline:
 
         # Construct Heimdall command
         #TODO: update heimdall cmd based on dm
-        heimdall_cmd = f"{heimdall_binary_path} -f {filenames} -dm {dm*0.9} {dm*1.1} -nsamps_gulp {nsamps_gulp} -boxcar_max {boxcar_max} {zap_chans_cmd}"
+        heimdall_cmd = f"{heimdall_binary_path} -f {filenames} -dm {dm} {dm} -nsamps_gulp {nsamps_gulp} -boxcar_max {boxcar_max} {zap_chans_cmd}"
         logging.debug(f"Executing Heimdall command: {heimdall_cmd}")
         subprocess.call(heimdall_cmd, shell=True)
         heimdall_end = timer()
@@ -353,7 +357,7 @@ class LWA_Transient_Pipeline:
         start_time = timer()
         channelize_command = [
             "python", channelize_script_path, self.file_name,
-            "-p", "-c", str(num_channels), "-b", str(num_channels), "-r", str(self.ra), "-d", str(self.dec)
+            "-p", "-c", str(num_channels), "-r", str(self.ra), "-d", str(self.dec)
         ]
         logging.debug(f"Executing channelize command: {' '.join(channelize_command)}")
         subprocess.run(channelize_command)

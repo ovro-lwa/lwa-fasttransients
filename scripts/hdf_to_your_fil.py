@@ -54,8 +54,8 @@ def prepare_header(name, RA, Dec, nchans, tsamp, num_samples, tstart, fr1, foff)
     """
     # Convert RA and Dec from degrees to HHMMSS.SS and DDMMSS.SS respectively
     coord = SkyCoord(RA, Dec, unit="deg")
-    src_raj = coord.ra.degree # RA in degrees as a float
-    src_dej = coord.dec.degree  # Dec in degrees as a float
+    src_raj = float(coord.ra.to_string(unit='hour', sep='', precision=2, pad=True))
+    src_dej = float(coord.dec.to_string(unit='deg', sep='', precision=2, pad=True))
 
     header_params = {
         "rawdatafile": name.replace('.hdf5', '.fil'),
@@ -105,7 +105,7 @@ def convert_hdf5_to_filterbank(name, RA, Dec):
         time_tuple = (observation_time[0], observation_time[1])
         tstart = timestamp_to_mjd(time_tuple)
 
-        tuning = observation['Tuning1']
+        tuning = observation['Tuning2']
         fr1 = tuning['freq'][-1] / 1e6  # Central frequency of the first channel in MHz
         foff = (tuning['freq'][-2] - tuning['freq'][-1]) / 1e6 # Channel width in MHz (should be negative in our case)
 
