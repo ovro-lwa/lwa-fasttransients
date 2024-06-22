@@ -164,3 +164,4 @@ cython_debug/
 # Configuration files
 config.ini
 transfer_config.json
+old_scripts/

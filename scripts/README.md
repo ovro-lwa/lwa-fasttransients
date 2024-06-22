@@ -33,7 +33,7 @@ After preparing your JSON data file, you can run the search pipeline to process 
 
 
 ```bash
-python search_pipeline.py <path_to_json_file> <source_number> --checkpoint <path_to_checkpoint_file>
+python src/pipeline.py <path_to_json_file> <source_number> --checkpoint <path_to_checkpoint_file>
 ```
 
 Arguments:
