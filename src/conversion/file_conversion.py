@@ -9,9 +9,8 @@ import configparser
 class FileConverter:
     def __init__(self):
         pass
-    
 
-    #TODO: add automatic calucaltion of lowest frequency
+    #TODO: add automatic calculation of lowest frequency
     @staticmethod
     def determine_num_channels(dm, low_freq=63.2, bw=19.6):
         num_channels = np.ceil(np.sqrt(8.3 * bw**2 * (low_freq / 1000)**-3 * dm))  # smearing calculation
@@ -79,4 +78,8 @@ class FileConverter:
         fil_file_name = hdf_file_name.replace('.hdf5', '.fil')
         logging.info(f"Conversion step is completed. The output file is {fil_file_name}")
         
-        return fil_file_name
+        return {
+            "fits_file_name": fits_file_name,
+            "hdf5_file_name": hdf_file_name,
+            "fil_file_name": fil_file_name
+        }
