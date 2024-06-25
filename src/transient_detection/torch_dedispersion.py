@@ -4,7 +4,6 @@ import os
 import json
 from timeit import default_timer as timer
 import configparser
-from datetime import datetime
 
 class TorchDedispersionProcessor:
     def __init__(self, config_path):
@@ -16,7 +15,7 @@ class TorchDedispersionProcessor:
         config.read(config_file_path)
         self.pytorch_dedispersion_path = config.get('Paths', 'PyTorchDedispersionPath')
 
-    def process(self, fil_file_name, dm_range, snr_threshold=7, boxcar_widths=[1, 2, 4, 8, 16], bad_channel_file=None):
+    def process(self, fil_file_name, dm_range, snr_threshold=7, boxcar_widths=[1, 2, 4, 8, 16, 32, 64], bad_channel_file=None, remove_trend=False, window_size=20000):
         dedispersion_start = timer()
 
         logging.info(f"TORCH DEDISPERSION: Processing file {fil_file_name} using PyTorchDedispersion")
@@ -42,6 +41,9 @@ class TorchDedispersionProcessor:
             '--config', self.config_path,
             '--verbose', '--gpu', '0'
         ]
+
+        if remove_trend:
+            command.extend(['--remove-trend', '--window-size', str(window_size)])
 
         try:
             subprocess.run(command, check=True)

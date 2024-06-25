@@ -4,15 +4,28 @@ from timeit import default_timer as timer
 import os
 import glob
 import numpy as np
-import configparser 
+import configparser
+import your 
 
 class FileConverter:
+    # Constants for LWA higher frequency band
+    # These values are specific to the LWA higher frequency band
+    # and might need to be changed for different datasets.
+    LOW_FREQ = 63.2  # MHz
+    BANDWIDTH = 19.6  # MHz
+
     def __init__(self):
         pass
 
-    #TODO: add automatic calculation of lowest frequency
     @staticmethod
-    def determine_num_channels(dm, low_freq=63.2, bw=19.6):
+    def determine_num_channels(dm, low_freq=LOW_FREQ, bw=BANDWIDTH):
+        """
+        Determine the number of channels needed to avoid smearing.
+        :param dm: Dispersion Measure
+        :param low_freq: Lowest frequency in MHz
+        :param bw: Bandwidth in MHz
+        :return: Number of channels
+        """
         num_channels = np.ceil(np.sqrt(8.3 * bw**2 * (low_freq / 1000)**-3 * dm))  # smearing calculation
         num_channels = int(num_channels)
         num_channels = (num_channels + 15) // 16 * 16  # multiple of 16
@@ -27,6 +40,22 @@ class FileConverter:
             logging.error(f"Expected 2 FITS files, found {len(fits_files)}. Check the directory: {current_directory}")
             return None
 
+    def validate_header(self, fil_file_name):
+        """
+        Validate the header of the converted .fil file.
+        :param fil_file_name: Name of the .fil file
+        :return: None
+        """
+        y = your.Your(fil_file_name)
+        bw = abs(y.your_header.bw)
+        fch1 = y.your_header.fch1
+
+        if not (self.LOW_FREQ <= (fch1+bw) and abs(self.LOW_FREQ - (fch1+bw)) < 0.2 ):
+            logging.warning(f"Channelization might be wrong!")
+
+        if not (abs(self.BANDWIDTH - bw) < 0.1):
+            logging.warning(f"bw ({bw}) is not close to the expected BANDWIDTH ({self.BANDWIDTH})")
+
     def run_conversion(self, source_data):
         file_name = source_data["file_name"]
         ra = source_data["RA"]
@@ -40,7 +69,9 @@ class FileConverter:
         
         channelize_script_path = config.get('Paths', 'ChannelizeScriptPath', fallback=os.getenv('CHANNELIZE_SCRIPT_PATH'))
         hdf5_conversion_script_path = config.get('Paths', 'HDF5ConversionScriptPath', fallback=os.getenv('HDF5_CONVERSION_SCRIPT_PATH'))
-        hdf_to_fil_script_path = config.get('Paths', 'HDFToFilScriptPath', fallback=os.getenv('HDF_TO_FIL_SCRIPT_PATH'))
+        
+        # Updated path for the HDF to FIL conversion script
+        hdf_to_fil_script_path = os.path.join(script_dir, 'hdf_to_your_fil.py')
         
         if not all([channelize_script_path, hdf5_conversion_script_path, hdf_to_fil_script_path]):
             logging.error("One or more script paths are not configured. Please check config.ini.")
@@ -77,6 +108,9 @@ class FileConverter:
         
         fil_file_name = hdf_file_name.replace('.hdf5', '.fil')
         logging.info(f"Conversion step is completed. The output file is {fil_file_name}")
+        
+        # Validate the header of the .fil file
+        self.validate_header(fil_file_name)
         
         return {
             "fits_file_name": fits_file_name,

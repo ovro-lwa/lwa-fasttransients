@@ -7,6 +7,6 @@ setup(
     url='https://github.com/ovro-lwa/lwa-fasttransients',
     packages=find_packages(where='src'),
     package_dir={'': 'src'},
-    python_requires='~=3.9.18',
+    python_requires='>=3.6',
     zip_safe=False
 )

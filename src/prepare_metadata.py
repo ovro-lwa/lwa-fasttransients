@@ -2,7 +2,7 @@ import argparse
 import json
 import os
 
-def prepare_data(file_name, ra, dec, dm, dm_ranges, json_file):
+def prepare_data(file_name, ra, dec, dm, lo_dm, hi_dm, json_file):
     """
     Prepares and saves source data to a JSON file.
 
@@ -11,18 +11,23 @@ def prepare_data(file_name, ra, dec, dm, dm_ranges, json_file):
         ra (float): The Right Ascension of the source.
         dec (float): The Declination of the source.
         dm (float): The Dispersion Measure of the source.
-        dm_ranges (list): The DM ranges for the source.
+        lo_dm (float): The lower bound of the DM range.
+        hi_dm (float): The upper bound of the DM range.
         json_file (str): The path to the JSON file to save the data to.
 
     If the specified JSON file does not exist, this function creates a new one and adds the data to it.
     If the file exists, it appends the new data to the existing file.
     """
+    if not (lo_dm <= dm <= hi_dm):
+        raise ValueError(f"DM ({dm}) must be within the range [{lo_dm}, {hi_dm}]")
+
     data = {
         "file_name": file_name,
         "RA": ra,
         "Dec": dec,
         "DM": dm,
-        "DM_RANGES": dm_ranges
+        "loDM": lo_dm,
+        "hiDM": hi_dm
     }
     
     # Check if the JSON file already exists
@@ -46,14 +51,12 @@ if __name__ == "__main__":
     parser.add_argument('--ra', type=float, required=True, help='The Right Ascension of the source (in deg).')
     parser.add_argument('--dec', type=float, required=True, help='The Declination of the source (in deg).')
     parser.add_argument('--dm', type=float, required=True, help='The Dispersion Measure of the source.')
-    parser.add_argument('--dm_ranges', '-dr', required=True, help='The DM ranges for the source (JSON format).')
+    parser.add_argument('--lo_dm', type=float, required=True, help='The lower bound of the DM range (in pc/cm³).')
+    parser.add_argument('--hi_dm', type=float, required=True, help='The upper bound of the DM range (in pc/cm³).')
     parser.add_argument('--json_file', '-json_f', required=True, help='The JSON file to save the data to.')
 
     # Parse the arguments
     args = parser.parse_args()
 
-    # Convert DM ranges from JSON format string to list
-    dm_ranges = json.loads(args.dm_ranges)
-
     # Prepare and save the data
-    prepare_data(args.file_name, args.ra, args.dec, args.dm, dm_ranges, args.json_file)
+    prepare_data(args.file_name, args.ra, args.dec, args.dm, args.lo_dm, args.hi_dm, args.json_file)

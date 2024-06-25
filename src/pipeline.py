@@ -6,19 +6,22 @@ from rfi_filtering.rfi_filter import RFI_Filter
 from transient_detection.torch_dedispersion import TorchDedispersionProcessor
 from utils.logging_setup import setup_logging
 from visualization.hiplot_visualizer import HiPlotVisualizer
+from dm_range_calculation.dm_range_calculator import calculate_dm_ranges
 import json
 import os
 from your import Your
 import pandas as pd
 
 class LWA_Transient_Pipeline:
-    def __init__(self, json_file, checkpoint_file):
+    def __init__(self, json_file, checkpoint_file, remove_trend=False, window_size=20000):
         self.json_loader = JSONDataLoader(json_file)
         self.file_converter = FileConverter()
         self.rfi_filter = RFI_Filter()
         self.dedispersion_processor = TorchDedispersionProcessor('config.json')
         self.hiplot_visualizer = HiPlotVisualizer(output_dir='.')  # Output directory for HiPlot files
         self.checkpoint_file = checkpoint_file
+        self.remove_trend = remove_trend
+        self.window_size = window_size
         self.setup_pipeline_state()
         setup_logging()
 
@@ -50,6 +53,16 @@ class LWA_Transient_Pipeline:
             with open(self.checkpoint_file, 'w') as file:
                 json.dump(self.pipeline_state, file)
 
+    def calculate_dm_ranges(self, loDM, hiDM, fil_file_name):
+        your_object = Your(fil_file_name)
+        dt = your_object.your_header.tsamp
+        f_ctr = your_object.your_header.center_freq
+        BW = abs(your_object.your_header.bw)
+        numchan = your_object.your_header.nchans
+
+        dm_ranges = calculate_dm_ranges(loDM, hiDM, f_ctr, BW, numchan, dt)
+        return dm_ranges
+
     def run(self):
         source_data = self.json_loader.load_source_data()  # Load the single source
 
@@ -77,12 +90,17 @@ class LWA_Transient_Pipeline:
             bad_channels_file = self.pipeline_state['bad_channels_file']
 
         if not self.pipeline_state['dedispersion_done']:
-            dm_ranges = source_data.get('DM_RANGES', [])
-            if not dm_ranges:
-                logging.error("No DM ranges provided in the metadata.")
-                return
+            loDM = source_data.get('loDM', 50)
+            hiDM = source_data.get('hiDM', 1000)
+            dm_ranges = self.calculate_dm_ranges(loDM, hiDM, fil_file_name)
 
-            csv_file_name = self.dedispersion_processor.process(fil_file_name, dm_ranges, bad_channel_file=bad_channels_file)
+            csv_file_name = self.dedispersion_processor.process(
+                fil_file_name, 
+                dm_ranges, 
+                bad_channel_file=bad_channels_file,
+                remove_trend=self.remove_trend,
+                window_size=self.window_size
+            )
             if csv_file_name:
                 self.pipeline_state['dedispersion_done'] = True
                 self.pipeline_state['output_filenames']['csv_file_name'] = csv_file_name
@@ -102,7 +120,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Run the pipeline for a specific source from the JSON metadata.')
     parser.add_argument('json_file', type=str, help='Path to the JSON file containing the metadata.')
     parser.add_argument('checkpoint', type=str, help='Path to the checkpoint file to resume pipeline.')
+    parser.add_argument('--remove_trend', action='store_true', help='Enable trend removal')
+    parser.add_argument('--window_size', type=int, default=20000, help='Window size for trend removal')
 
     args = parser.parse_args()
-    pipeline = LWA_Transient_Pipeline(args.json_file, args.checkpoint)
+    pipeline = LWA_Transient_Pipeline(args.json_file, args.checkpoint, args.remove_trend, args.window_size)
     pipeline.run()

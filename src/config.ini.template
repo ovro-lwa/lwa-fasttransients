@@ -1,6 +1,4 @@
 [Paths]
-ChannelizeScriptPath = PATH_TO_CHANNELIZE_SCRIPT
-HDF5ConversionScriptPath = PATH_TO_HDF5_CONVERSION_SCRIPT
-HDFToFilScriptPath = PATH_TO_HDF_TO_FIL_SCRIPT
+ChannelizeScriptPath = /path/to/pulsar/writePsrfits2.py
+HDF5ConversionScriptPath = /path/to/pulsar/writeHDF5FromPsrfits.py
 PyTorchDedispersionPath = /path/to/your/PyTorchDedispersion
-CandCsvMakerScript = PATH TO candcsvmaker.py
