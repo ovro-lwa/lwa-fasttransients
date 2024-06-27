@@ -13,6 +13,17 @@ from your import Your
 import pandas as pd
 
 class LWA_Transient_Pipeline:
+    """
+    Class representing the OVRO-LWA Fast Transients pipeline.
+
+    Args:
+        json_file (str): Path to the JSON file containing the metadata.
+        checkpoint_file (str): Path to the checkpoint file to resume pipeline.
+        remove_trend (bool): Flag to enable trend removal when dedispersion is
+        being executed (see PytTorchDedispersion documentation for more details).
+        window_size (int): Window size for trend removal.
+    """
+
     def __init__(self, json_file, checkpoint_file, remove_trend=False, window_size=20000):
         self.json_loader = JSONDataLoader(json_file)
         self.file_converter = FileConverter()
@@ -26,6 +37,10 @@ class LWA_Transient_Pipeline:
         setup_logging()
 
     def setup_pipeline_state(self):
+        """
+        Set up the initial state of the pipeline or load it from a checkpoint file.
+        """
+
         self.pipeline_state = {
             'conversion_done': False,
             'rfi_filter_done': False,
@@ -42,6 +57,10 @@ class LWA_Transient_Pipeline:
             self.save_pipeline_state()
 
     def load_pipeline_state(self):
+        """
+        Load the state of the pipeline from a checkpoint file.
+        """
+
         try:
             with open(self.checkpoint_file, 'r') as file:
                 self.pipeline_state = json.load(file)
@@ -49,11 +68,28 @@ class LWA_Transient_Pipeline:
             logging.error(f"Failed to load pipeline state: {e}")
 
     def save_pipeline_state(self):
+        """
+        Save the current state of the pipeline to a checkpoint file.
+        """
+
         if self.checkpoint_file:
             with open(self.checkpoint_file, 'w') as file:
                 json.dump(self.pipeline_state, file)
 
     def calculate_dm_ranges(self, loDM, hiDM, fil_file_name):
+        """
+        Calculate the range of Dispersion Measures (DMs) for dedispersion.
+        The format for DM ranges is desribed in the PyTorchDedispersion documentation.
+
+        Args:
+            loDM (float): Lower bound of the DM range.
+            hiDM (float): Upper bound of the DM range.
+            fil_file_name (str): Name of the .fil file to process.
+
+        Returns:
+            list: Calculated DM ranges.
+        """
+
         your_object = Your(fil_file_name)
         dt = your_object.your_header.tsamp
         f_ctr = your_object.your_header.center_freq
@@ -64,6 +100,10 @@ class LWA_Transient_Pipeline:
         return dm_ranges
 
     def run(self):
+        """
+        Run the entire OVRO-LWA Fast Transients pipeline.
+        """
+        
         source_data = self.json_loader.load_source_data()  # Load the single source
 
         if not self.pipeline_state['conversion_done']:

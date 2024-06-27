@@ -6,7 +6,9 @@ This repository contains the code for the OVRO-LWA Fast Transients project.
 
 The project is dedicated to building pipelines that aim to detect and analyze fast transients with the OVRO-LWA. 
 
-## Installation
+## Quick Start
+
+### Installation
 
 To run the pipeline, the following software needs to be installed:
 - [LWA Software Library](https://github.com/lwa-project/lsl)
@@ -16,65 +18,40 @@ To run the pipeline, the following software needs to be installed:
 - [High dimensional Interactive Plotting](https://github.com/facebookresearch/hiplot)
 - [PyTorch Dedispersion](https://github.com/nkosogor/PyTorchDedispersion)
 
+### Basic Usage
 
+1. **Prepare JSON Data**
 
-## Pipeline Overview
+    python src/prepare_metadata.py --file_name <file_name> --ra <RA> --dec <DEC> --dm <DM> --lo_dm <loDM> --hi_dm <hiDM> --json_file <path_to_json_file>
 
-This repository contains tools for preparing source data in JSON format and running a search pipeline to process this data. The pipeline includes data preparation, conversion, RFI filtering, dedispersion, and visualization using HiPlot.
+2. **Run the Search Pipeline**
 
-## Preparing Your Data
+    python src/pipeline.py <path_to_json_file> <path_to_checkpoint_file>
 
-### Step 1: Prepare JSON Data
+For detailed instructions, visit the [Wiki](https://github.com/ovro-lwa/lwa-fasttransients/wiki).
 
-The first step is to prepare the source data in JSON format. Use the `prepare_metadata.py` script to add new source data to a JSON file. If the JSON file does not exist, the script will create it.
+## Key Features
 
-#### Usage:
-
-```bash
-python src/prepare_metadata.py --file_name <file_name> --ra <RA> --dec <DEC> --dm <DM> --lo_dm <loDM> --hi_dm <hiDM> --json_file <path_to_json_file>
-```
-
-Arguments:
-- `--file_name (-f)`: The name of the voltage beam file.
-- `--ra`: The Right Ascension of the source (in degrees).
-- `--dec`: The Declination of the source (in degrees).
-- `--dm`: The expected Dispersion Measure of the source (in pc/cm³).
-- `--lo_dm`: The lower bound of the DM range (in pc/cm³).
-- `--hi_dm`: The upper bound of the DM range (in pc/cm³).
-- `--json_file (-json_f)`: The JSON file to save the data to.
-
-### Step 2: Run the Search Pipeline
-
-After preparing your JSON data file, you can run the search pipeline to process the data.
-
-#### Usage:
-
-```bash
-python src/pipeline.py <path_to_json_file> <path_to_checkpoint_file>
-```
-
-Arguments:
-- `<path_to_json_file>`: Path to the JSON file containing the metadata.
-- `<path_to_checkpoint_file>`: Path to the checkpoint file to resume the pipeline.
-
-## Pipeline Steps
-
-1. **Conversion**: Converts voltage beam files to .fil format with appropriate channelization to minimize DM smearing effects.
-
-2. **RFI Filtering**: Applies RFI filtering on the `.fil` file, creating a bad channels mask.
-
-3. **Dedispersion**: Processes the `.fil` file to generate dedispersed data and save it as a CSV file containing candidate detections.
-
-4. **Visualization**: Uses HiPlot to visualize the candidate detections and save the visualization as an HTML file.
+- **Conversion**: Converts voltage beam files to .fil format.
+- **RFI Filtering**: Applies RFI filtering on the `.fil` file.
+- **Dedispersion**: Processes the `.fil` file to generate dedispersed data.
+- **Visualization**: Uses HiPlot to visualize the candidate detections.
 
 ## Configuration
 
-Make sure to create a `config.ini` file with the paths to the necessary scripts and binaries before running the pipeline (see `config.ini.template`).
+Create a `config.ini` file with the necessary paths (see `config.ini.template`).
+
+## Links
+
+- https://github.com/ovro-lwa/lwa-fasttransients/wiki - Detailed documentation, troubleshooting, and advanced usage.
 
 ## Logs
 
-The pipeline logs its progress and any errors encountered. Check `pipeline.log` for detailed information about the execution of each step.
+Check `pipeline.log` for detailed information about the execution of each step.
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+This project is licensed under the MIT License (LICENSE).
+
+
+

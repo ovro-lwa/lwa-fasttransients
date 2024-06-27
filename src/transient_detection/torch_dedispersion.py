@@ -6,6 +6,12 @@ from timeit import default_timer as timer
 import configparser
 
 class TorchDedispersionProcessor:
+    """
+    Class for processing dedispersion using PyTorch.
+
+    Args:
+        config_path (str): Path to the configuration file.
+    """
     def __init__(self, config_path):
         self.config_path = config_path
 
@@ -15,7 +21,26 @@ class TorchDedispersionProcessor:
         config.read(config_file_path)
         self.pytorch_dedispersion_path = config.get('Paths', 'PyTorchDedispersionPath')
 
-    def process(self, fil_file_name, dm_range, snr_threshold=7, boxcar_widths=[1, 2, 4, 8, 16, 32, 64], bad_channel_file=None, remove_trend=False, window_size=20000):
+    def process(self, fil_file_name, dm_range, snr_threshold=4, boxcar_widths=[1, 2, 4, 8, 16, 32, 64], bad_channel_file=None, remove_trend=False, window_size=20000):
+        """
+        Process the dedispersion using PyTorch.
+
+        Args:
+            fil_file_name (str): Name of the .fil file.
+            dm_range (list): List of DM ranges.
+            snr_threshold (int): Signal-to-noise ratio threshold. Defaults to 7.
+            boxcar_widths (list): List of boxcar widths. Defaults to [1, 2, 4, 8, 16, 32, 64].
+            bad_channel_file (str): Path to the bad channel file.
+            remove_trend (bool): Flag to enable trend removal.
+            window_size (int): Window size for trend removal. Defaults to 20000.
+
+        Note:
+            The default values for snr_threshold and boxcar_widths are used but can be adjusted as needed.
+        
+        Returns:
+            str: Name of the CSV file with the results.
+        """
+       
         dedispersion_start = timer()
 
         logging.info(f"TORCH DEDISPERSION: Processing file {fil_file_name} using PyTorchDedispersion")

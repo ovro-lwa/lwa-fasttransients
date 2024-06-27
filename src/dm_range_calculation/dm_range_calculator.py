@@ -3,6 +3,21 @@ import subprocess
 import os
 
 def calculate_dm_ranges(loDM, hiDM, f_ctr, BW, numchan, tsamp):
+    """
+    Calculate the DM ranges (see PyTorchDedispersion documentation) using the dedisp_plan.py script.
+
+    Args:
+        loDM (float): Lower bound of the DM range.
+        hiDM (float): Upper bound of the DM range.
+        f_ctr (float): Center frequency in MHz.
+        BW (float): Bandwidth in MHz.
+        numchan (int): Number of channels.
+        tsamp (float): Sampling time in seconds.
+
+    Returns:
+        list: Calculated DM ranges.
+    """
+
     script_path = os.path.join(os.path.dirname(__file__), "dedisp_plan.py")
     output_file = os.path.join(os.path.dirname(__file__), "dm_ranges.json")
     command = [

@@ -1,0 +1,12 @@
+{
+    "sources": [
+        {
+            "file_name": "/path/to/voltage_beam_file",
+            "RA": 83.63,
+            "Dec": 22.01,
+            "DM": 175.0,
+            "loDM": 170.0,
+            "hiDM": 180.0
+        }
+    ]
+}

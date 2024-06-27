@@ -1,14 +1,27 @@
-# src/visualization/hiplot_visualizer.py
-
 import hiplot as hip
 import pandas as pd
 import os
 
 class HiPlotVisualizer:
+    """
+    Class for generating HiPlot visualizations.
+
+    Args:
+        output_dir (str): Directory to save the HiPlot files.
+    """
     def __init__(self, output_dir):
         self.output_dir = output_dir
 
     def generate_hiplot(self, csv_file):
+        """
+        Generate a HiPlot visualization from a CSV file.
+
+        Args:
+            csv_file (str): Path to the CSV file.
+
+        Returns:
+            str: Path to the generated HiPlot HTML file.
+        """
         # Read the CSV file
         df = pd.read_csv(csv_file)
 

@@ -3,10 +3,28 @@ import logging
 from timeit import default_timer as timer
 
 class RFI_Filter:
+    """
+    Class for applying Radio Frequency Interference (RFI) filtering.
+
+    Methods:
+        apply_filter(filenames, basenames, your_object): Apply RFI filter to the given files.
+    """
     def __init__(self):
         pass
 
     def apply_filter(self, filenames, basenames, your_object):
+        """
+        Apply RFI filtering to the given filenames.
+
+        Args:
+            filenames (str): Filenames to apply the filter on.
+            basenames (str): Base names for the output files.
+            your_object (object): YOUR object containing header information.
+
+        Note:
+            This method uses specific parameters for the RFI mask command:
+            -sk_sigma 4 -sg_sigma 4 -sg_frequency 15
+        """
         mask_start = timer()
         mask_cmd = "your_rfimask.py -v -f " + str(filenames) + " -sk_sigma 4 -sg_sigma 4 -sg_frequency 15"
         logging.debug('RFI MASK: command = ' + mask_cmd)

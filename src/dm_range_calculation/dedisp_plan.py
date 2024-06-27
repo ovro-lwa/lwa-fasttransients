@@ -3,6 +3,16 @@ import argparse
 import json
 
 class observation:
+    """
+    Class representing an observation with specific parameters.
+
+    Args:
+        dt (float): Sampling time in seconds.
+        f_ctr (float): Center frequency in MHz.
+        BW (float): Bandwidth in MHz.
+        numchan (int): Number of frequency channels.
+        cDM (float): Coherent Dispersion Measure.
+    """
     def __init__(self, dt, f_ctr, BW, numchan, cDM):
         # dt in sec, f_ctr and in MHz
         self.dt = dt
@@ -21,6 +31,19 @@ class observation:
         return self.dt*0.0001205*self.f_ctr**3.0/(0.5*self.BW)
 
 class dedisp_method:
+    """
+    Class representing a dedispersion method.
+
+    Args:
+        obs (observation): The observation object.
+        downsamp (int): Downsampling factor.
+        loDM (float): Lower bound of the DM range.
+        hiDM (float): Upper bound of the DM range.
+        dDM (float): DM step size.
+        numDMs (int): Number of DMs.
+        numsub (int): Number of subbands.
+        smearfact (float): Smearing factor.
+    """
     def __init__(self, obs, downsamp, loDM, hiDM, dDM, numDMs=0, numsub=0, smearfact=2.0):
         self.obs = obs
         self.downsamp = downsamp
