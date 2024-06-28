@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 
 
-chunk_size = 100000
+chunk_size = 1000
 
 def timestamp_to_mjd(time_tuple):
     """

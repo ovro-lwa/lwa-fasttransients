@@ -1,4 +1,3 @@
 [Paths]
 ChannelizeScriptPath = /path/to/pulsar/writePsrfits2.py
-HDF5ConversionScriptPath = /path/to/pulsar/writeHDF5FromPsrfits.py
 PyTorchDedispersionPath = /path/to/your/PyTorchDedispersion

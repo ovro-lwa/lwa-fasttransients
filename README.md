@@ -21,20 +21,21 @@ To run the pipeline, the following software needs to be installed:
 ### Basic Usage
 
 1. **Prepare JSON Data**
-
+    ```bash
     python src/prepare_metadata.py --file_name <file_name> --ra <RA> --dec <DEC> --dm <DM> --lo_dm <loDM> --hi_dm <hiDM> --json_file <path_to_json_file>
-
+    ```
 2. **Run the Search Pipeline**
-
+    ```bash
     python src/pipeline.py <path_to_json_file> <path_to_checkpoint_file>
+    ```
 
 For detailed instructions, visit the [Wiki](https://github.com/ovro-lwa/lwa-fasttransients/wiki).
 
 ## Key Features
 
-- **Conversion**: Converts voltage beam files to .fil format.
-- **RFI Filtering**: Applies RFI filtering on the `.fil` file.
-- **Dedispersion**: Processes the `.fil` file to generate dedispersed data.
+- **Conversion**: Channelizes and converts voltage beam files to filterbank `.fil` format.
+- **RFI Filtering**: Applies RFI filtering on the created filterbank file.
+- **Dedispersion**: Processes the filterbank file to generate dedispersed data and finds candidates.
 - **Visualization**: Uses HiPlot to visualize the candidate detections.
 
 ## Configuration
@@ -43,7 +44,7 @@ Create a `config.ini` file with the necessary paths (see `config.ini.template`).
 
 ## Links
 
-- https://github.com/ovro-lwa/lwa-fasttransients/wiki - Detailed documentation, troubleshooting, and advanced usage.
+- [Wiki](https://github.com/ovro-lwa/lwa-fasttransients/wiki) - Detailed documentation, troubleshooting, and advanced usage.
 
 ## Logs
 

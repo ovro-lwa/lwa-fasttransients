@@ -5,7 +5,7 @@ import os
 import glob
 import numpy as np
 import configparser
-import your 
+import your
 
 class FileConverter:
     """
@@ -75,8 +75,8 @@ class FileConverter:
         bw = abs(y.your_header.bw)
         fch1 = y.your_header.fch1
 
-        if not (self.LOW_FREQ <= (fch1+bw) and abs(self.LOW_FREQ - (fch1+bw)) < 0.2 ):
-            logging.warning(f"Channelization might be wrong!")
+        if not (self.LOW_FREQ <= (fch1 + bw)):
+            logging.warning(f"Channelization might be wrong since {fch1 + bw} is the lowest frequency in fil file.")
 
         if not (abs(self.BANDWIDTH - bw) < 0.1):
             logging.warning(f"bw ({bw}) is not close to the expected BANDWIDTH ({self.BANDWIDTH})")
@@ -96,24 +96,25 @@ class FileConverter:
         dec = source_data["Dec"]
         dm = source_data["DM"]
         hiDM = source_data.get("hiDM", 1000)
-        
+
         script_dir = os.path.dirname(os.path.abspath(__file__))
+        
         config_path = os.path.join(script_dir, '../config.ini')
         config = configparser.ConfigParser()
         config.read(config_path)
         
         channelize_script_path = config.get('Paths', 'ChannelizeScriptPath', fallback=os.getenv('CHANNELIZE_SCRIPT_PATH'))
-        hdf5_conversion_script_path = config.get('Paths', 'HDF5ConversionScriptPath', fallback=os.getenv('HDF5_CONVERSION_SCRIPT_PATH'))
+        hdf5_conversion_script_path = os.path.join(script_dir, 'writeHDF5FromPsrfits.py')
         
         # Updated path for the HDF to FIL conversion script
         hdf_to_fil_script_path = os.path.join(script_dir, 'hdf_to_your_fil.py')
-        
+
         if not all([channelize_script_path, hdf5_conversion_script_path, hdf_to_fil_script_path]):
-            logging.error("One or more script paths are not configured. Please check config.ini.")
+            logging.error("One or more script paths are not configured correctly.")
             return
-        
+
         num_channels = self.determine_num_channels(hiDM)
-        
+
         start_time = timer()
         channelize_command = [
             "python", channelize_script_path, file_name,
@@ -123,16 +124,16 @@ class FileConverter:
         subprocess.run(channelize_command)
         end_time = timer()
         logging.debug(f"Channelize script executed in {end_time - start_time} seconds")
-        
+
         fits_file_name = self.find_fits_file()
-        
+
         hdf5_start_time = timer()
         hdf5_command = ["python", hdf5_conversion_script_path, fits_file_name]
         logging.debug(f"Executing HDF5 conversion command: {' '.join(hdf5_command)}")
         subprocess.run(hdf5_command)
         hdf5_end_time = timer()
         logging.debug(f"HDF5 conversion script executed in {hdf5_end_time - hdf5_start_time} seconds")
-        
+
         hdf_file_name = fits_file_name.replace('.fits', '.hdf5')
         hdf_to_fil_command = [
             "python", hdf_to_fil_script_path, "-n", hdf_file_name, "-RA", str(ra), "-Dec", str(dec)
@@ -140,13 +141,13 @@ class FileConverter:
         logging.debug(f"Executing HDF to FIL conversion command: {' '.join(hdf_to_fil_command)}")
         subprocess.run(hdf_to_fil_command)
         logging.debug("HDF to FIL conversion script executed.")
-        
+
         fil_file_name = hdf_file_name.replace('.hdf5', '.fil')
         logging.info(f"Conversion step is completed. The output file is {fil_file_name}")
-        
+
         # Validate the header of the .fil file
         self.validate_header(fil_file_name)
-        
+
         return {
             "fits_file_name": fits_file_name,
             "hdf5_file_name": hdf_file_name,
