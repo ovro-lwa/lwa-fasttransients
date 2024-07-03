@@ -20,7 +20,7 @@ To run the pipeline, the following software needs to be installed:
 
 ### Basic Usage
 
-1. **Prepare JSON Data**
+1. **Prepare JSON MetaData**
     ```bash
     python src/prepare_metadata.py --file_name <file_name> --ra <RA> --dec <DEC> --dm <DM> --lo_dm <loDM> --hi_dm <hiDM> --json_file <path_to_json_file>
     ```

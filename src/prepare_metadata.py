@@ -2,21 +2,20 @@ import argparse
 import json
 import os
 
-def prepare_data(file_name, ra, dec, dm, lo_dm, hi_dm, json_file):
+def prepare_metadata(file_name, ra, dec, dm, lo_dm, hi_dm, json_file):
     """
-    Prepares and saves source data to a JSON file.
+    Prepares and saves source metadata (see args) to a JSON file.
 
     Args:
-        file_name (str): The name of the file.
-        ra (float): The Right Ascension of the source.
-        dec (float): The Declination of the source.
-        dm (float): The Dispersion Measure of the source.
-        lo_dm (float): The lower bound of the DM range.
-        hi_dm (float): The upper bound of the DM range.
-        json_file (str): The path to the JSON file to save the data to.
+        file_name (str): The name of the voltage beam file.
+        ra (float): The Right Ascension of the source in deg.
+        dec (float): The Declination of the source in deg.
+        dm (float): The Dispersion Measure of the source (in pc/cm³).
+        lo_dm (float): The lower bound of the DM range (in pc/cm³).
+        hi_dm (float): The upper bound of the DM range (in pc/cm³).
+        json_file (str): The path to the JSON file to save the metadata to.
 
-    If the specified JSON file does not exist, this function creates a new one and adds the data to it.
-    If the file exists, it appends the new data to the existing file.
+    If the specified JSON file does not exist, this function creates a new one and adds the metadata to it.
     """
     if not (lo_dm <= dm <= hi_dm):
         raise ValueError(f"DM ({dm}) must be within the range [{lo_dm}, {hi_dm}]")
@@ -46,7 +45,7 @@ def prepare_data(file_name, ra, dec, dm, lo_dm, hi_dm, json_file):
 
 if __name__ == "__main__":
     # Create an argument parser
-    parser = argparse.ArgumentParser(description='Prepare data for astronomical sources and save to a JSON file.')
+    parser = argparse.ArgumentParser(description='Prepares and saves source metadata to a JSON file used to run the pipeline.')
     parser.add_argument('--file_name', '-f', required=True, help='The name of the voltage beam file.')
     parser.add_argument('--ra', type=float, required=True, help='The Right Ascension of the source (in deg).')
     parser.add_argument('--dec', type=float, required=True, help='The Declination of the source (in deg).')
@@ -59,4 +58,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Prepare and save the data
-    prepare_data(args.file_name, args.ra, args.dec, args.dm, args.lo_dm, args.hi_dm, args.json_file)
+    prepare_metadata(args.file_name, args.ra, args.dec, args.dm, args.lo_dm, args.hi_dm, args.json_file)
