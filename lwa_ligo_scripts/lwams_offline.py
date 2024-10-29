@@ -38,7 +38,8 @@ FORCE_TABLE_FLUSH = False
 
 def load_first_visibility(hdf5_filename):
     """
-    Load the first visibility data, frequencies, and timestamp from an HDF5 file.
+    Load the first visibility data, frequencies, and timestamp from an HDF5 file. 
+    The visibility data is divided by 2500 for better normalization (can be adjusted).
 
     Parameters:
     hdf5_filename (str): The path to the HDF5 file.
@@ -50,12 +51,12 @@ def load_first_visibility(hdf5_filename):
         first_visibility = h5file['vis'][0]  # First time slice for all frequencies
         frequencies = h5file['freq'][:]
         first_time = h5file['time'][0]
-    return first_visibility, frequencies, first_time
+    return first_visibility/2500, frequencies, first_time
 
 def mirror_polarizations(visibilities):
     """
     Mirrors the polarizations in the visibility data. It ensures the upper triangle of the visibility
-    matrix is symmetric with the lower triangle, applying complex conjugation as necessary.
+    matrix is symmetric with the lower triangle.
 
     Args:
         visibilities (ndarray): The input visibility data with shape (ntime, nant, npol, nant, npol).
@@ -72,7 +73,9 @@ def mirror_polarizations(visibilities):
 
     for pol_pair in [(0, 0), (1, 1), (0, 1), (1, 0)]:
         pol_idx, conj_idx = pol_pair if pol_pair == (0, 0) or pol_pair == (1, 1) else (pol_pair[1], pol_pair[0])
-        conjugate_data = np.conj(visibilities[:, lower_triangle_mask[0], pol_idx, lower_triangle_mask[1], conj_idx])
+        # tests showed that conjugation doesn't have to be applied to produce the correct image
+        conjugate_data = visibilities[:, lower_triangle_mask[0], pol_idx, lower_triangle_mask[1], conj_idx] 
+        # conjugate_data = np.conj(visibilities[:, lower_triangle_mask[0], pol_idx, lower_triangle_mask[1], conj_idx])
         visibilities[:, lower_triangle_mask[1], conj_idx, lower_triangle_mask[0], pol_idx] = conjugate_data
 
     return visibilities
