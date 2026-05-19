@@ -63,6 +63,33 @@ def find_first(glob_pattern: str, search_dir: Path):
     return hits[0] if hits else None
 
 
+def psrfits_max_duration_sec(fits_path: Path) -> float:
+    """Seconds covered by all subintegrations in a PSRFITS file (skip=0).
+
+    Matches writeHDF5FromPsrfits.py: t_subint = NSBLK * TBIN, span = n_subints * t_subint.
+    """
+    from astropy.io import fits as astrofits
+
+    with astrofits.open(fits_path, memmap=True) as hdulist:
+        n_subints = len(hdulist[1].data)
+        t_int = float(hdulist[1].header["TBIN"])
+        n_subs = int(hdulist[1].header["NSBLK"])
+    return n_subints * n_subs * t_int
+
+
+def effective_hdf5_duration(requested_sec: float, fits_path: Path) -> float:
+    """Use requested duration, or the PSRFITS span if the request is longer."""
+    available = psrfits_max_duration_sec(fits_path)
+    if requested_sec > available:
+        print(
+            f"WARNING: requested duration {requested_sec:.3f} s exceeds PSRFITS "
+            f"({available:.3f} s); using full file span for HDF5 conversion.",
+            flush=True,
+        )
+        return available
+    return requested_sec
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -150,8 +177,13 @@ def main():
     if not args.skip_hdf5:
         if not Path(args.write_hdf5).exists():
             sys.exit(f"writeHDF5FromPsrfits.py not found at: {args.write_hdf5}")
+        hdf5_duration = effective_hdf5_duration(args.duration, fits_path)
+        if hdf5_duration != args.duration:
+            print(f"HDF5 duration : {hdf5_duration:.3f} s (capped from {args.duration:.3f} s)")
+        else:
+            print(f"HDF5 duration : {hdf5_duration:.3f} s")
         cmd = [args.python, args.write_hdf5, str(fits_path),
-               "-d", f"{args.duration}"]
+               "-d", f"{hdf5_duration}"]
         run(cmd, cwd=str(workdir))
 
         hdf5_path = fits_path.with_suffix(".hdf5")
