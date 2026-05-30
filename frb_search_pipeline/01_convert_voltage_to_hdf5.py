@@ -2,7 +2,7 @@
 """01 - Convert a voltage beam recording to HDF5.
 
 Pipeline:
-  raw voltage  --writePsrfits2.py-->  PSRFITS  --writeHDF5FromPsrfits.py-->  HDF5
+  raw voltage  --writePsrfits2.py-->  PSRFITS  --write_hdf5_from_psrfits.py-->  HDF5
 
 Number of channels for upchannelization is computed from the DM so the
 intra-channel smearing stays below the time resolution:
@@ -18,11 +18,15 @@ Examples
 --------
     python 01_convert_voltage_to_hdf5.py \
         --voltage 060942_0411495881658ef2ca4 \
-        --dm 405 --ra 307.9622 --dec 54.499 --duration 600
+        --dm 405 --ra 307.9622 --dec 54.499
+
+    # keep only the first 600 seconds in the HDF5:
+    python 01_convert_voltage_to_hdf5.py --voltage X --dm 300 \
+        --ra 207 --dec 17 --duration 600
 
     # override paths if your install differs:
     python 01_convert_voltage_to_hdf5.py --voltage X --dm 300 \
-        --ra 207 --dec 17 --duration 500 \
+        --ra 207 --dec 17 \
         --write-psrfits /opt/devel/.../writePsrfits2.py \
         --write-hdf5    /opt/devel/.../writeHDF5FromPsrfits.py
 """
@@ -31,18 +35,21 @@ from __future__ import annotations
 import argparse
 import math
 import os
-import shutil
+import re
 import subprocess
 import sys
 from pathlib import Path
 
 
+HERE = Path(__file__).resolve().parent
 DEFAULT_WRITE_PSRFITS = "/opt/devel/nkosogor/nkosogor/chime/pulsar/writePsrfits2_drx_nopsr.py"
-DEFAULT_WRITE_HDF5    = "/opt/devel/nkosogor/nkosogor/chime/pulsar/writeHDF5FromPsrfits.py"
+DEFAULT_WRITE_HDF5    = str(HERE / "write_hdf5_from_psrfits.py")
 
 # OVRO low-band defaults -- override with --low-freq / --bandwidth if needed
 DEFAULT_LOW_FREQ_MHZ  = 63.2
 DEFAULT_BANDWIDTH_MHZ = 19.6
+
+_SEGRE = re.compile(r"_(\d+)\.fits$")
 
 
 def compute_num_channels(dm: float, low_freq_mhz: float, bw_mhz: float) -> int:
@@ -58,16 +65,21 @@ def run(cmd, cwd=None):
         sys.exit(f"Command failed (exit {rc}): {' '.join(str(c) for c in cmd)}")
 
 
-def find_first(glob_pattern: str, search_dir: Path):
-    hits = sorted(search_dir.glob(glob_pattern))
-    return hits[0] if hits else None
+def segment_sort_key(path: Path) -> tuple[int, str]:
+    mtch = _SEGRE.search(path.name)
+    return (int(mtch.group(1)) if mtch else 0, path.name)
+
+
+def find_psrfits_segments(workdir: Path) -> list[Path]:
+    """Return all PSRFITS segments for Tuning2, sorted by segment number."""
+    hits = list(workdir.glob("drx_*_b1t2_*.fits"))
+    if not hits:
+        hits = list(workdir.glob("drx_*.fits"))
+    return sorted(hits, key=segment_sort_key)
 
 
 def psrfits_max_duration_sec(fits_path: Path) -> float:
-    """Seconds covered by all subintegrations in a PSRFITS file (skip=0).
-
-    Matches writeHDF5FromPsrfits.py: t_subint = NSBLK * TBIN, span = n_subints * t_subint.
-    """
+    """Seconds covered by all subintegrations in one PSRFITS file."""
     from astropy.io import fits as astrofits
 
     with astrofits.open(fits_path, memmap=True) as hdulist:
@@ -77,13 +89,24 @@ def psrfits_max_duration_sec(fits_path: Path) -> float:
     return n_subints * n_subs * t_int
 
 
-def effective_hdf5_duration(requested_sec: float, fits_path: Path) -> float:
-    """Use requested duration, or the PSRFITS span if the request is longer."""
-    available = psrfits_max_duration_sec(fits_path)
+def psrfits_total_duration_sec(fits_paths: list[Path]) -> float:
+    """Total span across all sequential PSRFITS segments."""
+    return sum(psrfits_max_duration_sec(path) for path in fits_paths)
+
+
+def effective_hdf5_duration(requested_sec: float, fits_paths: list[Path]) -> float:
+    """Resolve HDF5 duration from the requested value and combined PSRFITS span.
+
+    ``requested_sec <= 0`` means use the full combined PSRFITS span.  A positive
+    request is capped at the available span.
+    """
+    available = psrfits_total_duration_sec(fits_paths)
+    if requested_sec <= 0:
+        return available
     if requested_sec > available:
         print(
-            f"WARNING: requested duration {requested_sec:.3f} s exceeds PSRFITS "
-            f"({available:.3f} s); using full file span for HDF5 conversion.",
+            f"WARNING: requested duration {requested_sec:.3f} s exceeds combined PSRFITS "
+            f"span ({available:.3f} s); using full span for HDF5 conversion.",
             flush=True,
         )
         return available
@@ -99,8 +122,9 @@ def main():
                    help="DM (pc/cm^3) used to size the channelization.")
     p.add_argument("--ra", type=float, required=True, help="RA in degrees.")
     p.add_argument("--dec", type=float, required=True, help="Dec in degrees.")
-    p.add_argument("--duration", type=float, required=True,
-                   help="Duration to keep when writing HDF5 (seconds).")
+    p.add_argument("--duration", type=float, default=0.0,
+                   help="Duration to keep when writing HDF5 (seconds). "
+                        "0 (default) uses the full combined PSRFITS span.")
 
     p.add_argument("--workdir", default=".",
                    help="Working directory (input voltage file expected here unless full path given). "
@@ -115,7 +139,7 @@ def main():
     p.add_argument("--write-psrfits", default=DEFAULT_WRITE_PSRFITS,
                    help="Path to writePsrfits2.py")
     p.add_argument("--write-hdf5", default=DEFAULT_WRITE_HDF5,
-                   help="Path to writeHDF5FromPsrfits.py")
+                   help="Path to the PSRFITS -> HDF5 converter")
 
     p.add_argument("--skip-psrfits", action="store_true",
                    help="Skip step 1 (assume drx_*.fits already exists in workdir).")
@@ -124,6 +148,9 @@ def main():
     p.add_argument("--python", default=sys.executable,
                    help="Python interpreter for sub-commands (default: current).")
     args = p.parse_args()
+
+    if args.duration < 0:
+        sys.exit("--duration must be >= 0 (0 means full file).")
 
     workdir = Path(args.workdir).resolve()
     workdir.mkdir(parents=True, exist_ok=True)
@@ -148,7 +175,10 @@ def main():
     print(f"Voltage      : {voltage_path}")
     print(f"DM           : {args.dm}")
     print(f"RA / Dec     : {args.ra} / {args.dec}")
-    print(f"Duration (s) : {args.duration}")
+    if args.duration <= 0:
+        print("Duration (s) : full file (0)")
+    else:
+        print(f"Duration (s) : {args.duration}")
     print(f"# channels   : {n_chan}  (rounded to mult. of 16)")
     print(f"Workdir      : {workdir}")
     print("=" * 60)
@@ -166,34 +196,44 @@ def main():
     else:
         print("[skip] writePsrfits2 step skipped.")
 
-    # locate the produced PSRFITS file (e.g. drx_60942_None_b1t2_0001.fits)
-    fits_path = find_first("drx_*_b1t2_*.fits", workdir) \
-                or find_first("drx_*.fits", workdir)
-    if fits_path is None:
+    fits_paths = find_psrfits_segments(workdir)
+    if not fits_paths:
         sys.exit(f"No drx_*.fits produced in {workdir}.")
-    print(f"PSRFITS file : {fits_path}")
+    if len(fits_paths) == 1:
+        print(f"PSRFITS file : {fits_paths[0]}")
+    else:
+        print(f"PSRFITS files: {len(fits_paths)} segments")
+        for path in fits_paths:
+            print(f"  {path.name}  ({psrfits_max_duration_sec(path):.3f} s)")
 
-    # ---- Step 2: writeHDF5FromPsrfits ----
+    # ---- Step 2: write_hdf5_from_psrfits ----
     if not args.skip_hdf5:
         if not Path(args.write_hdf5).exists():
-            sys.exit(f"writeHDF5FromPsrfits.py not found at: {args.write_hdf5}")
-        hdf5_duration = effective_hdf5_duration(args.duration, fits_path)
-        if hdf5_duration != args.duration:
+            sys.exit(f"HDF5 converter not found at: {args.write_hdf5}")
+        hdf5_duration = effective_hdf5_duration(args.duration, fits_paths)
+        if args.duration <= 0:
+            print(f"HDF5 duration : {hdf5_duration:.3f} s (full combined PSRFITS span)")
+        elif hdf5_duration != args.duration:
             print(f"HDF5 duration : {hdf5_duration:.3f} s (capped from {args.duration:.3f} s)")
         else:
             print(f"HDF5 duration : {hdf5_duration:.3f} s")
-        cmd = [args.python, args.write_hdf5, str(fits_path),
+        cmd = [args.python, str(args.write_hdf5),
+               *[str(path) for path in fits_paths],
                "-d", f"{hdf5_duration}"]
         run(cmd, cwd=str(workdir))
 
-        hdf5_path = fits_path.with_suffix(".hdf5")
+        hdf5_path = fits_paths[0].with_suffix(".hdf5")
         if not hdf5_path.exists():
-            # fallback: any new .hdf5 next to fits
-            hdf5_path = find_first(f"{fits_path.stem}*.hdf5", workdir) \
-                        or find_first("*.hdf5", workdir)
+            stem = fits_paths[0].stem
+            candidates = sorted(workdir.glob(f"{stem}*.hdf5"))
+            if not candidates:
+                candidates = sorted(workdir.glob("drx_*_b1t2_*.hdf5"))
+            if not candidates:
+                candidates = sorted(workdir.glob("*.hdf5"))
+            hdf5_path = candidates[0] if candidates else hdf5_path
         print(f"\nHDF5 output  : {hdf5_path}")
     else:
-        print("[skip] writeHDF5FromPsrfits step skipped.")
+        print("[skip] PSRFITS -> HDF5 step skipped.")
 
 
 if __name__ == "__main__":

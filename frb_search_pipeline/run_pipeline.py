@@ -3,9 +3,9 @@
 
 Runs steps 01..06 in sequence
 
-Minimum inputs are filename, DM, and duration. RA/Dec only matter for the
-PSRFITS header and are passed through with sensible defaults; override if
-you care.
+Minimum inputs are filename and DM. RA/Dec only matter for the PSRFITS
+header and are passed through with sensible defaults; override if you care.
+By default the full voltage/PSRFITS span is searched (--duration 0).
 
 Example
 -------
@@ -18,10 +18,13 @@ Example
 
     python run_pipeline.py \
         --voltage 061161_183721867877c175bee \
-        --dm 108.3723 --duration 100
+        --dm 108.3723
+
+To search only the first 100 seconds instead:
+    python run_pipeline.py --voltage X --dm 108.3723 --duration 100
 
 To skip earlier stages on a re-run (for example, the HDF5 already exists):
-    python run_pipeline.py --voltage X --dm 108.3723 --duration 100 --start-from 02
+    python run_pipeline.py --voltage X --dm 108.3723 --start-from 02
 """
 from __future__ import annotations
 
@@ -68,8 +71,9 @@ def main():
     p.add_argument("--voltage", required=True,
                    help="Voltage filename or full path.")
     p.add_argument("--dm", type=float, required=True, help="DM (pc/cm^3).")
-    p.add_argument("--duration", type=float, required=True,
-                   help="Duration kept when writing HDF5 (seconds).")
+    p.add_argument("--duration", type=float, default=0.0,
+                   help="Duration kept when writing HDF5 (seconds). "
+                        "0 (default) uses the full PSRFITS span.")
 
     p.add_argument("--ra",  type=float, default=0.0,  help="RA (deg) for PSRFITS header.")
     p.add_argument("--dec", type=float, default=0.0,  help="Dec (deg) for PSRFITS header.")
@@ -95,6 +99,9 @@ def main():
     p.add_argument("--extra-05", default="", help="Extra args for step 05 (quoted).")
     p.add_argument("--extra-06", default="", help="Extra args for step 06 (quoted).")
     args = p.parse_args()
+
+    if args.duration < 0:
+        sys.exit("--duration must be >= 0 (0 means full file).")
 
     if STEPS.index(args.stop_after) < STEPS.index(args.start_from):
         sys.exit("--stop-after is before --start-from")

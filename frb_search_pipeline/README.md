@@ -39,14 +39,14 @@ export PYTHONPATH=/opt/devel/nkosogor/nkosogor:$PYTHONPATH
 ```bash
 python run_pipeline.py \
     --voltage 061161_183721867877c175bee \
-    --dm 108.3723 \
-    --duration 100
+    --dm 108.3723
 ```
 
 Optional knobs you'll often touch:
 
 | flag             | meaning                                        | default          |
 |------------------|------------------------------------------------|------------------|
+| `--duration`     | seconds kept in HDF5; `0` = full combined PSRFITS span | `0`              |
 | `--ra` / `--dec` | only used in PSRFITS header (step 01)          | 0 / 0            |
 | `--workdir`      | where outputs land; voltage looked up here     | `.`              |
 | `--tuning`       | `Tuning1` (low band) or `Tuning2` (high band)  | `Tuning2`        |
@@ -59,16 +59,20 @@ To rerun only the last two steps after tweaking dedispersion:
 
 ```bash
 python run_pipeline.py --voltage 061161_183721867877c175bee \
-    --dm 108.3723 --duration 100 --start-from 04
+    --dm 108.3723 --start-from 04
 ```
 
 ## Step-by-step (what the driver does)
+
+Long voltage recordings are split into multiple PSRFITS segments
+(`*_0001.fits`, `*_0002.fits`, …) by `writePsrfits2`. Step 01 concatenates
+all Tuning2 segments into a single HDF5 before searching.
 
 ```bash
 # 1) Voltage -> PSRFITS -> HDF5
 python 01_convert_voltage_to_hdf5.py \
     --voltage 061161_183721867877c175bee \
-    --dm 108.3723 --ra 307.9622 --dec 54.499 --duration 100
+    --dm 108.3723 --ra 307.9622 --dec 54.499
 
 # 2) Raw waterfall
 python 02_plot_raw.py --input drx_61161_None_b1t2_0001.hdf5
@@ -91,7 +95,7 @@ python 05_detrend_and_plot.py \
 
 | step | files                                                            |
 |------|------------------------------------------------------------------|
-| 01   | `drx_<MJD>_None_b1t{1,2}_0001.fits`, `..._b1t2_0001.hdf5`        |
+| 01   | `drx_<MJD>_None_b1t{1,2}_0001.fits` (+ `_0002`, … if long), `..._b1t2_0001.hdf5` |
 | 02   | `<base>_raw_waterfall.png`                                       |
 | 03   | `<base>_flags.h5`, `<base>_post_flag_waterfall.png`, `<base>_flag_diagnostics.png` |
 | 04   | `<base>_dm<DM>.npz` (and optional `_full_dynspec.h5`)            |
