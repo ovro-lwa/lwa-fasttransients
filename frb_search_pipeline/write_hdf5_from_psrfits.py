@@ -20,11 +20,13 @@ import argparse
 import os
 import re
 import sys
+from pathlib import Path
 
 import numpy
 from astropy.io import fits as astrofits
 from astropy.time import Time as AstroTime
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src" / "conversion"))
 import data as hdfData
 
 import lsl.common.progress as progress
