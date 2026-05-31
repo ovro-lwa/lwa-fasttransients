@@ -28,6 +28,16 @@ class FileConverter:
         pass
 
     @staticmethod
+    def _subprocess_env():
+        """Ensure lwa-fasttransients src is on PYTHONPATH for conversion subprocesses."""
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        src_dir = os.path.abspath(os.path.join(script_dir, '..'))
+        env = os.environ.copy()
+        prefix = env.get('PYTHONPATH', '')
+        env['PYTHONPATH'] = os.pathsep.join(p for p in (src_dir, prefix) if p)
+        return env
+
+    @staticmethod
     def determine_num_channels(dm, low_freq=LOW_FREQ, bw=BANDWIDTH):
         """
         Determine the number of channels needed to avoid smearing.
@@ -121,7 +131,7 @@ class FileConverter:
             "-p", "-c", str(num_channels), "-r", str(ra), "-d", str(dec)
         ]
         logging.debug(f"Executing channelize command: {' '.join(channelize_command)}")
-        subprocess.run(channelize_command)
+        subprocess.run(channelize_command, env=self._subprocess_env(), check=True)
         end_time = timer()
         logging.debug(f"Channelize script executed in {end_time - start_time} seconds")
 
@@ -130,7 +140,7 @@ class FileConverter:
         hdf5_start_time = timer()
         hdf5_command = ["python", hdf5_conversion_script_path, fits_file_name]
         logging.debug(f"Executing HDF5 conversion command: {' '.join(hdf5_command)}")
-        subprocess.run(hdf5_command)
+        subprocess.run(hdf5_command, env=self._subprocess_env(), check=True)
         hdf5_end_time = timer()
         logging.debug(f"HDF5 conversion script executed in {hdf5_end_time - hdf5_start_time} seconds")
 
@@ -139,7 +149,7 @@ class FileConverter:
             "python", hdf_to_fil_script_path, "-n", hdf_file_name, "-RA", str(ra), "-Dec", str(dec)
         ]
         logging.debug(f"Executing HDF to FIL conversion command: {' '.join(hdf_to_fil_command)}")
-        subprocess.run(hdf_to_fil_command)
+        subprocess.run(hdf_to_fil_command, env=self._subprocess_env(), check=True)
         logging.debug("HDF to FIL conversion script executed.")
 
         fil_file_name = hdf_file_name.replace('.hdf5', '.fil')
