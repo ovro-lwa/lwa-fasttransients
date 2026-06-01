@@ -8,7 +8,7 @@ import numpy as np
 import configparser
 import your
 
-from conversion.writeHDF5FromPsrfits import cli as write_hdf5_cli
+from .writeHDF5FromPsrfits import cli as write_hdf5_cli
 
 class FileConverter:
     """
