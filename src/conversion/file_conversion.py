@@ -1,4 +1,5 @@
 import subprocess
+import sys
 import logging
 from timeit import default_timer as timer
 import os
@@ -6,6 +7,8 @@ import glob
 import numpy as np
 import configparser
 import your
+
+from conversion.writeHDF5FromPsrfits import cli as write_hdf5_cli
 
 class FileConverter:
     """
@@ -26,6 +29,11 @@ class FileConverter:
 
     def __init__(self):
         pass
+
+    @staticmethod
+    def _python():
+        """Interpreter for child processes (match the active conda env)."""
+        return sys.executable
 
     @staticmethod
     def _subprocess_env():
@@ -114,12 +122,10 @@ class FileConverter:
         config.read(config_path)
         
         channelize_script_path = config.get('Paths', 'ChannelizeScriptPath', fallback=os.getenv('CHANNELIZE_SCRIPT_PATH'))
-        hdf5_conversion_script_path = os.path.join(script_dir, 'writeHDF5FromPsrfits.py')
-        
         # Updated path for the HDF to FIL conversion script
         hdf_to_fil_script_path = os.path.join(script_dir, 'hdf_to_your_fil.py')
 
-        if not all([channelize_script_path, hdf5_conversion_script_path, hdf_to_fil_script_path]):
+        if not all([channelize_script_path, hdf_to_fil_script_path]):
             logging.error("One or more script paths are not configured correctly.")
             return
 
@@ -127,7 +133,7 @@ class FileConverter:
 
         start_time = timer()
         channelize_command = [
-            "python", channelize_script_path, file_name,
+            self._python(), channelize_script_path, file_name,
             "-p", "-c", str(num_channels), "-r", str(ra), "-d", str(dec)
         ]
         logging.debug(f"Executing channelize command: {' '.join(channelize_command)}")
@@ -138,15 +144,15 @@ class FileConverter:
         fits_file_name = self.find_fits_file()
 
         hdf5_start_time = timer()
-        hdf5_command = ["python", hdf5_conversion_script_path, fits_file_name]
-        logging.debug(f"Executing HDF5 conversion command: {' '.join(hdf5_command)}")
-        subprocess.run(hdf5_command, env=self._subprocess_env(), check=True)
+        logging.debug("Running HDF5 conversion via conversion.writeHDF5FromPsrfits.cli(%s)", fits_file_name)
+        write_hdf5_cli([fits_file_name])
         hdf5_end_time = timer()
-        logging.debug(f"HDF5 conversion script executed in {hdf5_end_time - hdf5_start_time} seconds")
+        logging.debug(f"HDF5 conversion executed in {hdf5_end_time - hdf5_start_time} seconds")
 
         hdf_file_name = fits_file_name.replace('.fits', '.hdf5')
         hdf_to_fil_command = [
-            "python", hdf_to_fil_script_path, "-n", hdf_file_name, "-RA", str(ra), "-Dec", str(dec)
+            self._python(), "-m", "conversion.hdf_to_your_fil",
+            "-n", hdf_file_name, "-RA", str(ra), "-Dec", str(dec)
         ]
         logging.debug(f"Executing HDF to FIL conversion command: {' '.join(hdf_to_fil_command)}")
         subprocess.run(hdf_to_fil_command, env=self._subprocess_env(), check=True)
