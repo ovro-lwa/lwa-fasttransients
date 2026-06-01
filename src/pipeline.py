@@ -1,3 +1,5 @@
+import pathsetup  # noqa: F401  # must run before other local imports
+
 import argparse
 import logging
 from data_preparation.json_preparation import JSONDataLoader

@@ -17,7 +17,7 @@ from datetime import datetime
 from astropy.time import Time as AstroTime
 from astropy.io import fits as astrofits
 
-from conversion import data as hdfData
+from . import data as hdfData
 
 import lsl.astro as astro
 import lsl.common.progress as progress
