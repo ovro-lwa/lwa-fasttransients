@@ -17,7 +17,7 @@ from datetime import datetime
 from astropy.time import Time as AstroTime
 from astropy.io import fits as astrofits
 
-import data as hdfData
+from . import data as hdfData
 
 import lsl.astro as astro
 import lsl.common.progress as progress
@@ -259,19 +259,22 @@ def main(args):
     f.close()
 
 
-if __name__ == "__main__":
+def cli(argv=None):
+    """Run HDF5 conversion from an argv list (e.g. ``['obs.fits']``)."""
     parser = argparse.ArgumentParser(
-        description='read in a PSRFITS file and create an HDF5 file in the standard LWA1 format', 
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-        )
-    parser.add_argument('filename', type=str, nargs='+',
-                        help='filename to process')
+        description='read in a PSRFITS file and create an HDF5 file in the standard LWA1 format',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument('filename', type=str, nargs='+', help='filename to process')
     parser.add_argument('-s', '--skip', type=aph.positive_or_zero_float, default=0.0,
                         help='time in seconds to skip into the file')
     parser.add_argument('-d', '--duration', type=aph.positive_float, default=None,
                         help='amount of time to save in seconds (default is the entire file duration)')
-    parser.add_argument('-o', '--output', type=str,
-                        help='output file basename')
-    args = parser.parse_args()
+    parser.add_argument('-o', '--output', type=str, help='output file basename')
+    args = parser.parse_args(argv)
     main(args)
+
+
+if __name__ == "__main__":
+    cli()
 
