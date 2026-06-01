@@ -26,8 +26,11 @@ import numpy
 from astropy.io import fits as astrofits
 from astropy.time import Time as AstroTime
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src" / "conversion"))
-import data as hdfData
+# Prefer the modern import path (conversion.data). Some environments warn on
+# legacy "import data" patterns because they can accidentally shadow unrelated
+# modules named "data".
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+from conversion import data as hdfData
 
 import lsl.common.progress as progress
 from lsl.misc import parser as aph
