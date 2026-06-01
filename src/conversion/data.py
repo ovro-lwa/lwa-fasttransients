@@ -1,11 +1,13 @@
 """
 HDF5 beam-file helpers from lwa-project/commissioning DRX/HDF5.
 
-The implementation lives in ``_data.py`` (vendored from commissioning). An optional
-network fetch refreshes that file when it is missing or older than MAX_AGE_SEC.
+Re-exports :mod:`conversion._data` (vendored ``_data.py``). Other code should use::
+
+    from conversion import data as hdfData
+
+which is the same API as ``from conversion._data import *``.
 """
 
-import importlib.util
 import os
 import time
 from urllib import request as urlrequest
@@ -20,6 +22,7 @@ MAX_AGE_SEC = 86400
 
 
 def _maybe_refresh_data_file():
+    """Download commissioning data.py into ``_data.py`` if missing or stale."""
     age = 1e6
     etag = ""
     if os.path.isfile(_DATA_FILE):
@@ -41,27 +44,14 @@ def _maybe_refresh_data_file():
         fh.write(new_etag)
 
 
-def _load_commissioning_data():
-    _maybe_refresh_data_file()
-    if not os.path.isfile(_DATA_FILE):
-        raise FileNotFoundError(
-            "Missing {0}; run once on a networked host or copy from "
-            "https://github.com/lwa-project/commissioning/tree/master/DRX/HDF5".format(
-                _DATA_FILE
-            )
+_maybe_refresh_data_file()
+if not os.path.isfile(_DATA_FILE):
+    raise FileNotFoundError(
+        "Missing {0}; run once on a networked host or copy from "
+        "https://github.com/lwa-project/commissioning/tree/master/DRX/HDF5".format(
+            _DATA_FILE
         )
-    spec = importlib.util.spec_from_file_location(
-        "conversion._data",
-        _DATA_FILE,
     )
-    if spec is None or spec.loader is None:
-        raise ImportError("Could not load commissioning HDF5 helpers from {0}".format(_DATA_FILE))
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
 
-
-_comm = _load_commissioning_data()
-__all__ = list(getattr(_comm, "__all__", []))
-for _name in __all__:
-    globals()[_name] = getattr(_comm, _name)
+from ._data import *
+from ._data import __all__
