@@ -275,7 +275,7 @@ def _parse_pipeline_env_line(line):
     m = _PIPELINE_ENV_TIME_RE.search(line)
     if m:
         raw = m.group(1).strip()
-        if raw != "<derive from dm>" and not raw.startswith("<"):
+        if raw not in ("<derive from dm>", "<full file>") and not raw.startswith("<"):
             out["env_time"] = float(raw)
     m = _PIPELINE_ENV_FILENAME_RE.search(line)
     if m:
@@ -477,13 +477,11 @@ def build_resubmit_export(
 
     if filename:
         return _export(
-            explicit_time_sec=duration_sec,
             filename=filename,
         )
 
     if window_now:
         return _export(
-            explicit_time_sec=duration_sec,
             schedule_unix=time.time(),
         )
 
@@ -499,7 +497,6 @@ def build_resubmit_export(
         )
 
     return _export(
-        explicit_time_sec=duration_sec,
         window_end_epoch=window_end_epoch,
         lookback_min=lookback_min,
     )

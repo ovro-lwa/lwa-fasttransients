@@ -14,7 +14,7 @@ from frb_search_pipeline.find_voltage_file import (
     log_pick_warnings,
     window_bounds,
 )
-from frb_search_pipeline.slurm_schedule import duration_from_dm, voltage_beam_search_dir
+from frb_search_pipeline.slurm_schedule import voltage_beam_search_dir
 
 HERE = Path(__file__).resolve().parent
 RUN_PIPELINE = HERE / "run_pipeline.py"
@@ -38,7 +38,7 @@ def _log_pipeline_env(
     lookback_min: int,
     search_dir: Path,
 ) -> None:
-    time_display = "<derive from dm>" if time_val is None else str(time_val)
+    time_display = "<full file>" if time_val is None else str(time_val)
     end_display = window_end_epoch if window_end_epoch is not None else "<unset>"
     ra_display = ra if ra is not None else "<unset>"
     dec_display = dec if dec is not None else "<unset>"
@@ -67,8 +67,7 @@ def _resolve_duration(
         if explicit_time == 0:
             return 0.0, "full combined PSRFITS span (time=0)"
         return float(explicit_time), "from exported time (seconds)"
-    duration = duration_from_dm(dm)
-    return duration, "from dm (dispersion delay + 10 s; same as lwa_alert_client.delay)"
+    return 0.0, "full combined PSRFITS span (default; all time samples)"
 
 
 def run_voltage_beam(
