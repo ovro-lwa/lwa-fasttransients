@@ -1,0 +1,24 @@
+# Reference snapshot of the lwacalim02 `fasttransients` conda environment.
+# DO NOT run `conda env create` on the production calim node — dependencies are
+# already installed there. Use scripts/deploy_calim.sh after git pull instead.
+#
+# External paths on calim02 (set in Slurm job / deploy script, not conda packages):
+#   TEMPO=/opt/devel/pipeline/nkosogor/tempo
+#   PRESTO=/opt/devel/pipeline/nkosogor/presto
+#   PYTHONPATH=/opt/devel/nkosogor/nkosogor (writePsrfits2 and chime tools)
+
+name: fasttransients
+channels:
+  - conda-forge
+dependencies:
+  - python>=3.10
+  - numpy
+  - scipy
+  - matplotlib
+  - pandas
+  - astropy
+  - h5py
+  - tqdm
+  - pip
+  - pip:
+      - your

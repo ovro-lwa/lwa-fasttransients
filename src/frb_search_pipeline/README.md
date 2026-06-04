@@ -123,3 +123,53 @@ OVRO low-band defaults: `f_low = 63.2 MHz`, `BW = 19.6 MHz`.
   `t_delay[s] = 4148.808 * DM * (1/f_MHz^2 - 1/f_ref_MHz^2)`.
 - All flagged samples are turned into NaN; downstream code uses
   NaN-aware reductions for both averaging and candidate search.
+
+## Slurm integration (voltage beam alerts)
+
+Alert-driven voltage beams on **lwacalim02** use the unified CLI and `run_pipeline.py` (CPU, known-DM search). The Slurm batch script is `ovro-alert/slurm/voltage_beam_pipeline.job`; it calls `lwa-voltage-beam run` after `conda activate fasttransients`.
+
+**Deploy on lwacalim02** (run after every `git pull` that touches this repo):
+
+```bash
+conda activate fasttransients
+cd /home/pipeline/proj/lwa-fasttransients
+./scripts/deploy_calim.sh
+```
+
+**CLI** (`lwa-voltage-beam` on `$PATH` after deploy):
+
+| subcommand | role |
+|------------|------|
+| `run` | Inside Slurm: find voltage file (mtime window + retry), run steps 01–06 |
+| `submit` | `sbatch` with explicit file or alert-style mtime window |
+| `resubmit` | Re-queue from prior job stdout (`voltage_beam_pipeline-JOBID.out`) |
+
+```bash
+# Manual processing on calim (no Slurm)
+lwa-voltage-beam run --dm 87.3 --ra 83.6 --dec 22.0 \
+  --filename /lustre/ubuntu/beam01/foo.raw --workdir /tmp/vb_test --duration 300
+
+# Submit Slurm job with pinned file
+lwa-voltage-beam submit --file /lustre/ubuntu/beam01/foo.raw --dm 87.3 \
+  --duration 300 --ra 83.6 --dec 22.0
+
+# Resubmit failed job
+lwa-voltage-beam resubmit /home/pipeline/slurm/voltage_beam_pipeline-12345.out \
+  --start-from 04
+```
+
+**Package layout** (scheduling + file find):
+
+```
+frb_search_pipeline/
+├── cli.py                 # lwa-voltage-beam entry
+├── run_voltage_beam.py    # run subcommand (find + run_pipeline.py)
+├── find_voltage_file.py   # mtime pick + 3×60 s retry
+├── slurm_schedule.py      # sbatch exports, resubmit log parsers
+└── run_pipeline.py        # one-shot driver
+```
+
+**Slurm job exports:** `dm`, `VOLTAGE_BEAM_RA`, `VOLTAGE_BEAM_DEC`, optional `time` (duration seconds), optional `filename`, or `VOLTAGE_BEAM_WINDOW_END_EPOCH` + `VOLTAGE_BEAM_LOOKBACK_MIN` for auto-pick. File find retries: `VOLTAGE_BEAM_FIND_RETRIES` (default 3), `VOLTAGE_BEAM_FIND_RETRY_SEC` (default 60).
+
+**Products:** `/lustre/pipeline/teng/voltage_beam_JOBID/` after the job moves the `/fast` workdir.
+
