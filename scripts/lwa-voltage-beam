@@ -1,0 +1,7 @@
+#!/usr/bin/env python
+"""Direct launcher for lwa-voltage-beam (avoids broken console_scripts loaders on some conda envs)."""
+from frb_search_pipeline.cli import main
+import sys
+
+if __name__ == "__main__":
+    sys.exit(main())
