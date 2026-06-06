@@ -78,6 +78,14 @@ def find_psrfits_segments(workdir: Path) -> list[Path]:
     return sorted(hits, key=segment_sort_key)
 
 
+def remove_stale_psrfits(workdir: Path) -> list[Path]:
+    """Remove existing PSRFITS segments so writePsrfits can recreate them."""
+    existing = sorted(workdir.glob("drx_*.fits"), key=segment_sort_key)
+    for path in existing:
+        path.unlink()
+    return existing
+
+
 def psrfits_max_duration_sec(fits_path: Path) -> float:
     """Seconds covered by all subintegrations in one PSRFITS file."""
     from astropy.io import fits as astrofits
@@ -185,6 +193,15 @@ def main():
 
     # ---- Step 1: writePsrfits2 ----
     if not args.skip_psrfits:
+        stale = remove_stale_psrfits(workdir)
+        if stale:
+            print(
+                f"Removing {len(stale)} stale PSRFITS file(s) before regeneration "
+                "(writePsrfits cannot overwrite existing outputs):"
+            )
+            for path in stale:
+                print(f"  {path.name}")
+
         if not Path(args.write_psrfits).exists():
             sys.exit(f"writePsrfits2.py not found at: {args.write_psrfits}")
         cmd = [args.python, args.write_psrfits, str(voltage_path),
