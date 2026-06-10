@@ -157,6 +157,7 @@ def _cmd_resubmit(args: argparse.Namespace) -> int:
         resume_from=args.resume_from,
         no_resume=args.no_resume,
         start_from=args.start_from,
+        extra_03=args.extra_03,
     )
 
     print(f"Parsed from {stdout_path}: dm={dm} duration_sec={duration_sec}", file=sys.stderr)
@@ -222,8 +223,7 @@ def _build_parser() -> argparse.ArgumentParser:
     submit_p.add_argument("--nodelist", default=None)
     submit_p.add_argument("--job", default=None, help="Path to voltage_beam_pipeline.job.")
     submit_p.add_argument("--dry-run", action="store_true")
-    submit_p.add_argument("extra", nargs=argparse.REMAINDER, help="Extra sbatch args after --.")
-    submit_p.set_defaults(func=_cmd_submit)
+    submit_p.set_defaults(func=_cmd_submit, extra=[])
 
     resubmit_p = sub.add_parser("resubmit", help="Resubmit from a prior job stdout log.")
     resubmit_p.add_argument("stdout_file", help="Prior job stdout (voltage_beam_pipeline-JOBID.out).")
@@ -234,31 +234,38 @@ def _build_parser() -> argparse.ArgumentParser:
     resubmit_p.add_argument("--resume-from", default=None)
     resubmit_p.add_argument("--no-resume", action="store_true")
     resubmit_p.add_argument("--start-from", default=None, help="run_pipeline.py step id (01-06).")
+    resubmit_p.add_argument(
+        "--extra-03",
+        default=None,
+        help="Extra args for step 03 (quoted string passed to run_pipeline.py --extra-03).",
+    )
     resubmit_p.add_argument("--ra", type=float, default=None)
     resubmit_p.add_argument("--dec", type=float, default=None)
     resubmit_p.add_argument("--begin", default="now")
     resubmit_p.add_argument("--nodelist", default=None)
     resubmit_p.add_argument("--job", default=None)
     resubmit_p.add_argument("--dry-run", action="store_true")
-    resubmit_p.add_argument("extra", nargs=argparse.REMAINDER)
-    resubmit_p.set_defaults(func=_cmd_resubmit)
+    resubmit_p.set_defaults(func=_cmd_resubmit, extra=[])
 
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
-    # Strip leading "--" separator used by shell scripts before extra sbatch args.
+    sbatch_extra: list[str] = []
     if argv is not None and "--" in argv:
         idx = argv.index("--")
-        argv = argv[:idx] + argv[idx + 1 :]
+        sbatch_extra = argv[idx + 1 :]
+        argv = argv[:idx]
 
     parser = _build_parser()
     args = parser.parse_args(argv)
     if args.command is None:
         parser.print_help()
         return 0
-    if getattr(args, "extra", None) and args.extra[:1] == ["--"]:
-        args.extra = args.extra[1:]
+    if sbatch_extra and sbatch_extra[:1] == ["--"]:
+        sbatch_extra = sbatch_extra[1:]
+    if hasattr(args, "extra"):
+        args.extra = sbatch_extra
     return args.func(args)
 
 

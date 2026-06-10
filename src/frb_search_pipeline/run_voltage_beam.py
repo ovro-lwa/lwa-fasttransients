@@ -82,6 +82,7 @@ def run_voltage_beam(
     lookback_min: Optional[int] = None,
     explicit_time: Optional[float] = None,
     start_from: str = "01",
+    extra_03: str = "",
     python: Optional[str] = None,
     copy_voltage: bool = True,
     sleep_fn=None,
@@ -192,6 +193,8 @@ def run_voltage_beam(
 
     env_start = os.environ.get("VOLTAGE_BEAM_START_FROM")
     start_from = env_start or start_from
+    env_extra_03 = os.environ.get("VOLTAGE_BEAM_EXTRA_03")
+    extra_03 = env_extra_03 or extra_03
 
     py = python or sys.executable
     cmd = [
@@ -212,6 +215,8 @@ def run_voltage_beam(
         "--start-from",
         start_from,
     ]
+    if extra_03:
+        cmd += ["--extra-03", extra_03]
     print(f"lwa-voltage-beam run: {' '.join(cmd)}")
     rc = subprocess.call(cmd)
     if rc != 0:

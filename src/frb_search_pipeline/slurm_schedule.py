@@ -126,6 +126,7 @@ def sbatch_voltage_beam_exports(
     dec=None,
     resume_from=None,
     start_from=None,
+    extra_03=None,
     *,
     clear_mtime_window_for_filename: bool = False,
 ):
@@ -167,6 +168,8 @@ def sbatch_voltage_beam_exports(
         parts.append("VOLTAGE_BEAM_RESUME_FROM={0}".format(resume_from))
     if start_from:
         parts.append("VOLTAGE_BEAM_START_FROM={0}".format(start_from))
+    if extra_03:
+        parts.append("VOLTAGE_BEAM_EXTRA_03={0}".format(extra_03))
     return ",".join(parts)
 
 
@@ -439,6 +442,7 @@ def build_resubmit_export(
     resume_from=None,
     no_resume=False,
     start_from=None,
+    extra_03=None,
 ):
     meta = parse_voltage_beam_job_log(content)
     dm = meta["dm"]
@@ -471,6 +475,7 @@ def build_resubmit_export(
             dec=dec,
             resume_from=resume_dir,
             start_from=start_from,
+            extra_03=extra_03,
             **kwargs,
         )
         return dm, duration_sec, export, resume_dir

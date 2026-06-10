@@ -94,6 +94,49 @@ def test_resubmit_dry_run(tmp_path):
     assert "VOLTAGE_BEAM_RA=83.6" in calls[0]
 
 
+def test_resubmit_extra_03_dry_run(tmp_path):
+    stdout = tmp_path / "voltage_beam_pipeline-456.out"
+    stdout.write_text(
+        "\n".join(
+            [
+                "Pipeline env: dm=87.3 time=300 filename=<auto> "
+                "VOLTAGE_BEAM_WINDOW_END_EPOCH=1700000480 VOLTAGE_BEAM_LOOKBACK_MIN=11 "
+                "search_dir=/lustre/ubuntu/beam01",
+                "Pipeline parameters: dm=87.3 duration_sec=300 (from exported time (seconds))",
+                "Pipeline target: RA=83.6 Dec=22.0 lwa_fasttransients=/home/pipeline/proj/lwa-fasttransients",
+            ]
+        )
+    )
+    job = tmp_path / "job.job"
+    job.write_text("#!/bin/bash\n")
+
+    calls = []
+
+    def fake_sbatch(export_body, **kwargs):
+        calls.append(export_body)
+        import subprocess
+
+        return subprocess.CompletedProcess([], 0, stdout="", stderr="")
+
+    with patch("frb_search_pipeline.cli.submit_voltage_beam_sbatch", side_effect=fake_sbatch):
+        rc = main(
+            [
+                "resubmit",
+                str(stdout),
+                "--job",
+                str(job),
+                "--start-from",
+                "03",
+                "--extra-03",
+                "--read-chunk-blocks 8 --time-chunk 2048",
+                "--dry-run",
+            ]
+        )
+    assert rc == 0
+    assert "VOLTAGE_BEAM_START_FROM=03" in calls[0]
+    assert "VOLTAGE_BEAM_EXTRA_03=--read-chunk-blocks 8 --time-chunk 2048" in calls[0]
+
+
 def test_run_file_not_found_returns_2(tmp_path, monkeypatch):
     monkeypatch.setenv("VOLTAGE_BEAM_RA", "10")
     monkeypatch.setenv("VOLTAGE_BEAM_DEC", "20")
