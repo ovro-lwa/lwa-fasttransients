@@ -59,3 +59,24 @@ def test_duration_from_dm_matches_lwa_alert_client_delay():
 
     for dm in (10.0, 87.5, 1008.9138184):
         assert duration_from_dm(dm) == pytest.approx(dispersion_delay_s(dm, 1e9, 50) + 10)
+
+
+def test_submit_voltage_beam_sbatch_sets_chdir(tmp_path, monkeypatch):
+    job = tmp_path / "slurm" / "voltage_beam_pipeline.job"
+    job.parent.mkdir(parents=True)
+    job.write_text("#!/bin/bash\n")
+
+    captured = []
+
+    def fake_run(cmd, **kwargs):
+        captured.append(cmd)
+        import subprocess
+
+        return subprocess.CompletedProcess(cmd, 0, stdout="Submitted batch job 1\n", stderr="")
+
+    monkeypatch.setattr("frb_search_pipeline.slurm_schedule.subprocess.run", fake_run)
+    from frb_search_pipeline.slurm_schedule import submit_voltage_beam_sbatch
+
+    submit_voltage_beam_sbatch("dm=1", job_script=job, dry_run=False)
+    assert captured
+    assert f"--chdir={job.parent.resolve()}" in captured[0]
