@@ -167,14 +167,21 @@ def _cmd_resubmit(args: argparse.Namespace) -> int:
     print(f"sbatch export: {export}", file=sys.stderr)
 
     job = Path(args.job) if args.job else default_voltage_beam_job_script()
-    proc = submit_voltage_beam_sbatch(
-        export,
-        job_script=job,
-        begin=args.begin,
-        nodelist=args.nodelist,
-        extra_args=args.extra,
-        dry_run=args.dry_run,
-    )
+    if not job.is_file():
+        print(f"Job script not found: {job}", file=sys.stderr)
+        return 1
+    try:
+        proc = submit_voltage_beam_sbatch(
+            export,
+            job_script=job,
+            begin=args.begin,
+            nodelist=args.nodelist,
+            extra_args=args.extra,
+            dry_run=args.dry_run,
+        )
+    except FileNotFoundError as exc:
+        print(exc, file=sys.stderr)
+        return 1
     if args.dry_run:
         return 0
     if proc.returncode != 0:
