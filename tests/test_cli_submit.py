@@ -1,0 +1,302 @@
+"""CLI submit/resubmit dry-run parity with former shell scripts."""
+
+from unittest.mock import patch
+
+import pytest
+
+from frb_search_pipeline.cli import main
+from frb_search_pipeline.slurm_schedule import build_explicit_file_export
+
+
+def test_submit_explicit_file_export_matches_shell(tmp_path):
+    raw = tmp_path / "foo.raw"
+    raw.write_text("x")
+    export = build_explicit_file_export(87.3, str(raw.resolve()), time_sec=300.0, ra=83.6, dec=22.0)
+    assert export.startswith("dm=87.3")
+    assert f"filename={raw.resolve()}" in export
+    assert "time=300.0" in export
+    assert "VOLTAGE_BEAM_RA=83.6" in export
+    assert "VOLTAGE_BEAM_DEC=22.0" in export
+    assert "VOLTAGE_BEAM_WINDOW_END_EPOCH=" in export
+    assert "VOLTAGE_BEAM_LOOKBACK_MIN=120" in export
+
+
+def test_submit_dry_run(tmp_path, monkeypatch):
+    raw = tmp_path / "foo.raw"
+    raw.write_text("x")
+    job = tmp_path / "job.job"
+    job.write_text("#!/bin/bash\n")
+
+    calls = []
+
+    def fake_sbatch(export_body, **kwargs):
+        calls.append((export_body, kwargs))
+        import subprocess
+
+        return subprocess.CompletedProcess([], 0, stdout="", stderr="")
+
+    monkeypatch.setenv("OVRO_ALERT_VOLTAGE_PIPELINE_NODELIST", "lwacalim02")
+    with patch("frb_search_pipeline.cli.submit_voltage_beam_sbatch", side_effect=fake_sbatch):
+        rc = main(
+            [
+                "submit",
+                "--file",
+                str(raw),
+                "--dm",
+                "87.3",
+                "--duration",
+                "300",
+                "--ra",
+                "83.6",
+                "--dec",
+                "22.0",
+                "--job",
+                str(job),
+                "--dry-run",
+            ]
+        )
+    assert rc == 0
+    assert len(calls) == 1
+    export, kwargs = calls[0]
+    assert "filename=" in export
+    assert kwargs["begin"] == "now"
+    assert kwargs["dry_run"] is True
+
+
+def test_resubmit_dry_run(tmp_path):
+    stdout = tmp_path / "voltage_beam_pipeline-123.out"
+    stdout.write_text(
+        "\n".join(
+            [
+                "Pipeline env: dm=87.3 time=300 filename=<auto> "
+                "VOLTAGE_BEAM_WINDOW_END_EPOCH=1700000480 VOLTAGE_BEAM_LOOKBACK_MIN=11 "
+                "search_dir=/lustre/ubuntu/beam01",
+                "Pipeline parameters: dm=87.3 duration_sec=300 (from exported time (seconds))",
+                "Pipeline target: RA=83.6 Dec=22.0 lwa_fasttransients=/home/pipeline/proj/lwa-fasttransients",
+            ]
+        )
+    )
+    job = tmp_path / "job.job"
+    job.write_text("#!/bin/bash\n")
+
+    calls = []
+
+    def fake_sbatch(export_body, **kwargs):
+        calls.append((export_body, kwargs))
+        import subprocess
+
+        return subprocess.CompletedProcess([], 0, stdout="", stderr="")
+
+    with patch("frb_search_pipeline.cli.submit_voltage_beam_sbatch", side_effect=fake_sbatch):
+        rc = main(["resubmit", str(stdout), "--job", str(job), "--dry-run"])
+    assert rc == 0
+    export, kwargs = calls[0]
+    assert "VOLTAGE_BEAM_WINDOW_END_EPOCH=1700000480" in export
+    assert "VOLTAGE_BEAM_RA=83.6" in export
+    assert kwargs["dry_run"] is True
+    assert kwargs["extra_args"] == []
+
+
+def test_resubmit_flags_after_stdout_not_passed_to_sbatch(tmp_path):
+    stdout = tmp_path / "voltage_beam_pipeline-789.out"
+    stdout.write_text(
+        "\n".join(
+            [
+                "Pipeline env: dm=87.3 time=300 filename=<auto> "
+                "VOLTAGE_BEAM_WINDOW_END_EPOCH=1700000480 VOLTAGE_BEAM_LOOKBACK_MIN=11 "
+                "search_dir=/lustre/ubuntu/beam01",
+                "Pipeline parameters: dm=87.3 duration_sec=300 (from exported time (seconds))",
+                "Pipeline target: RA=83.6 Dec=22.0 lwa_fasttransients=/home/pipeline/proj/lwa-fasttransients",
+            ]
+        )
+    )
+    job = tmp_path / "job.job"
+    job.write_text("#!/bin/bash\n")
+
+    calls = []
+
+    def fake_sbatch(export_body, **kwargs):
+        calls.append((export_body, kwargs))
+        import subprocess
+
+        return subprocess.CompletedProcess([], 0, stdout="", stderr="")
+
+    with patch("frb_search_pipeline.cli.submit_voltage_beam_sbatch", side_effect=fake_sbatch):
+        rc = main(
+            [
+                "resubmit",
+                str(stdout),
+                "--job",
+                str(job),
+                "--start-from",
+                "03",
+                "--extra-03",
+                "--read-chunk-blocks 8",
+                "--dry-run",
+            ]
+        )
+    assert rc == 0
+    export, kwargs = calls[0]
+    assert "VOLTAGE_BEAM_START_FROM=03" in export
+    assert "VOLTAGE_BEAM_EXTRA_03=--read-chunk-blocks 8" in export
+    assert kwargs["dry_run"] is True
+    assert kwargs["extra_args"] == []
+
+
+def test_resubmit_sbatch_extra_after_double_dash(tmp_path):
+    stdout = tmp_path / "voltage_beam_pipeline-999.out"
+    stdout.write_text(
+        "\n".join(
+            [
+                "Pipeline env: dm=87.3 time=300 filename=<auto> "
+                "VOLTAGE_BEAM_WINDOW_END_EPOCH=1700000480 VOLTAGE_BEAM_LOOKBACK_MIN=11 "
+                "search_dir=/lustre/ubuntu/beam01",
+                "Pipeline parameters: dm=87.3 duration_sec=300 (from exported time (seconds))",
+                "Pipeline target: RA=83.6 Dec=22.0 lwa_fasttransients=/home/pipeline/proj/lwa-fasttransients",
+            ]
+        )
+    )
+    job = tmp_path / "job.job"
+    job.write_text("#!/bin/bash\n")
+
+    calls = []
+
+    def fake_sbatch(export_body, **kwargs):
+        calls.append((export_body, kwargs))
+        import subprocess
+
+        return subprocess.CompletedProcess([], 0, stdout="", stderr="")
+
+    with patch("frb_search_pipeline.cli.submit_voltage_beam_sbatch", side_effect=fake_sbatch):
+        rc = main(
+            [
+                "resubmit",
+                str(stdout),
+                "--job",
+                str(job),
+                "--dry-run",
+                "--",
+                "--time=2:00:00",
+            ]
+        )
+    assert rc == 0
+    _, kwargs = calls[0]
+    assert kwargs["extra_args"] == ["--time=2:00:00"]
+
+
+def test_resubmit_extra_03_dry_run(tmp_path):
+    stdout = tmp_path / "voltage_beam_pipeline-456.out"
+    stdout.write_text(
+        "\n".join(
+            [
+                "Pipeline env: dm=87.3 time=300 filename=<auto> "
+                "VOLTAGE_BEAM_WINDOW_END_EPOCH=1700000480 VOLTAGE_BEAM_LOOKBACK_MIN=11 "
+                "search_dir=/lustre/ubuntu/beam01",
+                "Pipeline parameters: dm=87.3 duration_sec=300 (from exported time (seconds))",
+                "Pipeline target: RA=83.6 Dec=22.0 lwa_fasttransients=/home/pipeline/proj/lwa-fasttransients",
+            ]
+        )
+    )
+    job = tmp_path / "job.job"
+    job.write_text("#!/bin/bash\n")
+
+    calls = []
+
+    def fake_sbatch(export_body, **kwargs):
+        calls.append((export_body, kwargs))
+        import subprocess
+
+        return subprocess.CompletedProcess([], 0, stdout="", stderr="")
+
+    with patch("frb_search_pipeline.cli.submit_voltage_beam_sbatch", side_effect=fake_sbatch):
+        rc = main(
+            [
+                "resubmit",
+                str(stdout),
+                "--job",
+                str(job),
+                "--start-from",
+                "03",
+                "--extra-03",
+                "--read-chunk-blocks 8 --time-chunk 2048",
+                "--dry-run",
+            ]
+        )
+    assert rc == 0
+    export, kwargs = calls[0]
+    assert "VOLTAGE_BEAM_START_FROM=03" in export
+    assert "VOLTAGE_BEAM_EXTRA_03=--read-chunk-blocks 8 --time-chunk 2048" in export
+    assert kwargs["dry_run"] is True
+    assert kwargs["extra_args"] == []
+
+
+def test_resubmit_start_from_includes_resume_from(tmp_path):
+    stdout = tmp_path / "voltage_beam_pipeline-254876.out"
+    stdout.write_text(
+        "\n".join(
+            [
+                "Pipeline env: dm=87.3 time=300 filename=<auto> "
+                "VOLTAGE_BEAM_WINDOW_END_EPOCH=1700000480 VOLTAGE_BEAM_LOOKBACK_MIN=11 "
+                "search_dir=/lustre/ubuntu/beam01",
+                "Pipeline parameters: dm=87.3 duration_sec=300 (from exported time (seconds))",
+                "Pipeline target: RA=83.6 Dec=22.0 lwa_fasttransients=/home/pipeline/proj/lwa-fasttransients",
+            ]
+        )
+    )
+    prior = tmp_path / "voltage_beam_254876"
+    prior.mkdir()
+    (prior / "drx_61161_None_b1t2_0001.hdf5").write_text("hdf5")
+
+    job = tmp_path / "job.job"
+    job.write_text("#!/bin/bash\n")
+
+    calls = []
+
+    def fake_sbatch(export_body, **kwargs):
+        calls.append((export_body, kwargs))
+        import subprocess
+
+        return subprocess.CompletedProcess([], 0, stdout="", stderr="")
+
+    with patch("frb_search_pipeline.cli.submit_voltage_beam_sbatch", side_effect=fake_sbatch):
+        rc = main(
+            [
+                "resubmit",
+                str(stdout),
+                "--job",
+                str(job),
+                "--start-from",
+                "03",
+                "--resume-from",
+                str(prior),
+                "--extra-03",
+                "--imp-z 50",
+                "--dry-run",
+            ]
+        )
+    assert rc == 0
+    export, _ = calls[0]
+    assert "VOLTAGE_BEAM_START_FROM=03" in export
+    assert "VOLTAGE_BEAM_EXTRA_03=--imp-z 50" in export
+    assert f"VOLTAGE_BEAM_RESUME_FROM={prior.resolve()}" in export
+
+
+def test_run_file_not_found_returns_2(tmp_path, monkeypatch):
+    monkeypatch.setenv("VOLTAGE_BEAM_RA", "10")
+    monkeypatch.setenv("VOLTAGE_BEAM_DEC", "20")
+    monkeypatch.setenv("VOLTAGE_BEAM_FIND_RETRIES", "1")
+    monkeypatch.setenv("VOLTAGE_BEAM_FIND_RETRY_SEC", "0")
+    rc = main(
+        [
+            "run",
+            "--dm",
+            "87",
+            "--workdir",
+            str(tmp_path / "work"),
+            "--window-end-epoch",
+            "1700000000",
+            "--lookback-min",
+            "10",
+        ]
+    )
+    assert rc == 2
