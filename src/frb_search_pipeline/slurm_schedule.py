@@ -212,9 +212,13 @@ def submit_voltage_beam_sbatch(
         "OVRO_ALERT_VOLTAGE_PIPELINE_NODELIST", DEFAULT_VOLTAGE_PIPELINE_NODELIST
     )
     export = export_body if export_body.startswith("ALL,") else f"ALL,{export_body}"
+    chdir = os.environ.get("OVRO_ALERT_VOLTAGE_SBATCH_CHDIR")
+    if not chdir:
+        chdir = str(job.resolve().parent)
     cmd: List[str] = [
         "sbatch",
         f"--begin={begin}",
+        f"--chdir={chdir}",
         f"--nodelist={nodelist}",
         f"--export={export}",
         *(extra_args or ()),
@@ -459,12 +463,16 @@ def build_resubmit_export(
         )
 
     resume_dir = None
-    if not no_resume and start_from is None:
-        resume_dir = locate_prior_job_artifacts(
-            content,
-            stdout_path=stdout_path,
-            resume_from=resume_from,
-        )
+    if not no_resume:
+        # Steps 02+ need artifacts from a prior run (at minimum the step-01 HDF5).
+        # Auto-locate when resubmitting, or when --start-from skips step 01.
+        needs_artifacts = start_from is None or int(start_from) > 1
+        if needs_artifacts or resume_from:
+            resume_dir = locate_prior_job_artifacts(
+                content,
+                stdout_path=stdout_path,
+                resume_from=resume_from,
+            )
 
     def _export(**kwargs):
         export = sbatch_voltage_beam_exports(
