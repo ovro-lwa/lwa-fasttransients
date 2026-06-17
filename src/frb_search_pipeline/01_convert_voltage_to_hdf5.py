@@ -102,6 +102,39 @@ def psrfits_total_duration_sec(fits_paths: list[Path]) -> float:
     return sum(psrfits_max_duration_sec(path) for path in fits_paths)
 
 
+def remove_staged_voltage_input(
+    voltage_path: Path,
+    workdir: Path,
+    fits_paths: list[Path],
+    hdf5_path: Path,
+) -> None:
+    """Remove the local voltage copy after successful PSRFITS and HDF5 conversion.
+
+    Only deletes files inside ``workdir`` so the canonical source on Lustre is
+    never touched.
+    """
+    voltage_path = voltage_path.resolve()
+    workdir = workdir.resolve()
+
+    try:
+        voltage_path.relative_to(workdir)
+    except ValueError:
+        return
+
+    if not voltage_path.is_file():
+        return
+
+    missing_fits = [path for path in fits_paths if not path.is_file()]
+    if missing_fits:
+        sys.exit(f"PSRFITS missing after conversion: {missing_fits[0]}")
+
+    if not hdf5_path.is_file():
+        sys.exit(f"HDF5 file not found after conversion: {hdf5_path}")
+
+    voltage_path.unlink()
+    print(f"Removed voltage input (conversion successful): {voltage_path}")
+
+
 def effective_hdf5_duration(requested_sec: float, fits_paths: list[Path]) -> float:
     """Resolve HDF5 duration from the requested value and combined PSRFITS span.
 
@@ -153,6 +186,8 @@ def main():
                    help="Skip step 1 (assume drx_*.fits already exists in workdir).")
     p.add_argument("--skip-hdf5", action="store_true",
                    help="Skip step 2 (only produce PSRFITS).")
+    p.add_argument("--keep-voltage-input", action="store_true",
+                   help="Keep the local voltage file after successful conversion.")
     p.add_argument("--python", default=sys.executable,
                    help="Python interpreter for sub-commands (default: current).")
     args = p.parse_args()
@@ -249,6 +284,9 @@ def main():
                 candidates = sorted(workdir.glob("*.hdf5"))
             hdf5_path = candidates[0] if candidates else hdf5_path
         print(f"\nHDF5 output  : {hdf5_path}")
+
+        if not args.skip_psrfits and not args.keep_voltage_input:
+            remove_staged_voltage_input(voltage_path, workdir, fits_paths, hdf5_path)
     else:
         print("[skip] PSRFITS -> HDF5 step skipped.")
 

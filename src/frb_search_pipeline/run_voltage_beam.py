@@ -221,8 +221,4 @@ def run_voltage_beam(
     rc = subprocess.call(cmd)
     if rc != 0:
         return rc
-
-    if copy_voltage and staged.is_file():
-        staged.unlink()
-        print(f"Removed staged voltage copy: {staged}")
     return 0
