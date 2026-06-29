@@ -171,5 +171,5 @@ frb_search_pipeline/
 
 **Slurm job exports:** `dm`, `VOLTAGE_BEAM_RA`, `VOLTAGE_BEAM_DEC`, optional `time` (duration seconds), optional `filename`, or `VOLTAGE_BEAM_WINDOW_END_EPOCH` + `VOLTAGE_BEAM_LOOKBACK_MIN` for auto-pick. File find retries: `VOLTAGE_BEAM_FIND_RETRIES` (default 3), `VOLTAGE_BEAM_FIND_RETRY_SEC` (default 60).
 
-**Products:** `/lustre/pipeline/teng/voltage_beam_JOBID/` after the job moves the `/fast` workdir.
+**Products:** `/data02/pipeline/teng/voltage_beam_JOBID/` on lwacalim02 (Slurm workdir; replaces `/fast/pipeline/fast`).
 

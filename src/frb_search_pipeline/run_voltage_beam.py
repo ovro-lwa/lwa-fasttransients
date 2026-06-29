@@ -14,7 +14,11 @@ from frb_search_pipeline.find_voltage_file import (
     log_pick_warnings,
     window_bounds,
 )
-from frb_search_pipeline.slurm_schedule import voltage_beam_search_dir
+from frb_search_pipeline.slurm_schedule import (
+    assert_voltage_beam_slurm_runtime,
+    voltage_beam_search_dir,
+    voltage_beam_workdir,
+)
 
 HERE = Path(__file__).resolve().parent
 RUN_PIPELINE = HERE / "run_pipeline.py"
@@ -90,6 +94,9 @@ def run_voltage_beam(
     log: Callable[[str], None] = lambda msg: print(msg, file=sys.stderr),
 ) -> int:
     """Find voltage file (with retry), stage to workdir, run run_pipeline.py."""
+    workdir = workdir.resolve()
+    assert_voltage_beam_slurm_runtime(workdir)
+
     search = (search_dir or voltage_beam_search_dir()).resolve()
     lookback = int(lookback_min if lookback_min is not None else os.environ.get("VOLTAGE_BEAM_LOOKBACK_MIN", "120"))
 
@@ -162,7 +169,6 @@ def run_voltage_beam(
         f"lwa_fasttransients={os.environ.get('LWA_FT_ROOT', '/home/pipeline/proj/lwa-fasttransients')}"
     )
 
-    workdir = workdir.resolve()
     workdir.mkdir(parents=True, exist_ok=True)
 
     resume_from = os.environ.get("VOLTAGE_BEAM_RESUME_FROM")

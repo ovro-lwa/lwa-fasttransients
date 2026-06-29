@@ -3,6 +3,7 @@
 import json
 import os
 import re
+import socket
 import subprocess
 import sys
 import time
@@ -10,8 +11,14 @@ from pathlib import Path
 from typing import List, Optional, Sequence, Tuple
 
 DEFAULT_VOLTAGE_BEAM_SEARCH_DIR = "/lustre/ubuntu/beam01"
-DEFAULT_VOLTAGE_BEAM_PRODUCT_ROOT = "/lustre/pipeline/teng"
-DEFAULT_VOLTAGE_BEAM_FAST_ROOT = "/fast/pipeline/fast"
+DEFAULT_VOLTAGE_BEAM_WORKDIR_ROOT = "/data02/pipeline/teng"
+# Back-compat aliases for env overrides and prior job artifact lookup.
+DEFAULT_VOLTAGE_BEAM_PRODUCT_ROOT = DEFAULT_VOLTAGE_BEAM_WORKDIR_ROOT
+DEFAULT_VOLTAGE_BEAM_FAST_ROOT = DEFAULT_VOLTAGE_BEAM_WORKDIR_ROOT
+LEGACY_VOLTAGE_BEAM_ARTIFACT_ROOTS = (
+    "/lustre/pipeline/teng",
+    "/fast/pipeline/fast",
+)
 DEFAULT_VOLTAGE_BEAM_JOB = "/home/pipeline/proj/ovro-alert/slurm/voltage_beam_pipeline.job"
 DEFAULT_VOLTAGE_PIPELINE_NODELIST = "lwacalim02"
 
@@ -32,6 +39,51 @@ def schedule_voltage_beam_window(
 
 def voltage_beam_search_dir() -> Path:
     return Path(os.environ.get("VOLTAGE_BEAM_SEARCH_DIR", DEFAULT_VOLTAGE_BEAM_SEARCH_DIR))
+
+
+def voltage_beam_workdir_root() -> Path:
+    """Scratch and product root for voltage beam jobs (lwacalim02 /data02 only)."""
+    raw = (
+        os.environ.get("VOLTAGE_BEAM_WORKDIR_ROOT")
+        or os.environ.get("VOLTAGE_BEAM_FAST_ROOT")
+        or os.environ.get("VOLTAGE_BEAM_PRODUCT_ROOT")
+        or DEFAULT_VOLTAGE_BEAM_WORKDIR_ROOT
+    )
+    return Path(raw).resolve()
+
+
+def voltage_beam_workdir(job_id: Optional[str] = None) -> Path:
+    jid = job_id or os.environ.get("SLURM_JOB_ID", "nojob")
+    return voltage_beam_workdir_root() / "voltage_beam_{0}".format(jid)
+
+
+def assert_voltage_beam_slurm_runtime(workdir: Path) -> None:
+    """Require the Slurm compute node and data02 workdir when SLURM_JOB_ID is set."""
+    if not os.environ.get("SLURM_JOB_ID"):
+        return
+
+    required_host = os.environ.get(
+        "VOLTAGE_BEAM_REQUIRED_HOST", DEFAULT_VOLTAGE_PIPELINE_NODELIST
+    )
+    host = socket.gethostname().split(".")[0]
+    if host != required_host:
+        sys.exit(
+            "voltage beam Slurm jobs must run on {0} (got {1})".format(required_host, host)
+        )
+
+    root = voltage_beam_workdir_root()
+    if not root.is_dir():
+        sys.exit(
+            "workdir root {0} is not available on this host "
+            "(expected on {1})".format(root, required_host)
+        )
+
+    try:
+        workdir.resolve().relative_to(root)
+    except ValueError:
+        sys.exit(
+            "workdir {0} is outside configured root {1}".format(workdir.resolve(), root)
+        )
 
 
 def lookback_minutes_for_duration(duration_sec, margin_s=300):
@@ -400,16 +452,17 @@ def locate_prior_job_artifacts(
     if stdout_path:
         job_id = parse_slurm_job_id_from_stdout_path(stdout_path)
         if job_id is not None:
-            product = Path(
+            workdir_root = Path(
                 product_root
-                or os.environ.get("VOLTAGE_BEAM_PRODUCT_ROOT", DEFAULT_VOLTAGE_BEAM_PRODUCT_ROOT)
+                or fast_root
+                or os.environ.get("VOLTAGE_BEAM_WORKDIR_ROOT")
+                or os.environ.get("VOLTAGE_BEAM_PRODUCT_ROOT")
+                or os.environ.get("VOLTAGE_BEAM_FAST_ROOT")
+                or DEFAULT_VOLTAGE_BEAM_WORKDIR_ROOT
             )
-            fast = Path(
-                fast_root
-                or os.environ.get("VOLTAGE_BEAM_FAST_ROOT", DEFAULT_VOLTAGE_BEAM_FAST_ROOT)
-            )
-            candidates.append(product / "voltage_beam_{0}".format(job_id))
-            candidates.append(fast / "voltage_beam_{0}".format(job_id))
+            candidates.append(workdir_root / "voltage_beam_{0}".format(job_id))
+            for legacy in LEGACY_VOLTAGE_BEAM_ARTIFACT_ROOTS:
+                candidates.append(Path(legacy) / "voltage_beam_{0}".format(job_id))
 
     seen = set()
     for path in candidates:

@@ -17,6 +17,7 @@ from frb_search_pipeline.slurm_schedule import (
     sbatch_voltage_beam_exports,
     submit_voltage_beam_sbatch,
     voltage_beam_search_dir,
+    voltage_beam_workdir,
 )
 
 
@@ -28,9 +29,7 @@ def _resolve_path(path: str) -> Path:
 
 
 def _cmd_run(args: argparse.Namespace) -> int:
-    workdir = Path(args.workdir) if args.workdir else Path(
-        f"/fast/pipeline/fast/voltage_beam_{os.environ.get('SLURM_JOB_ID', 'nojob')}"
-    )
+    workdir = Path(args.workdir) if args.workdir else voltage_beam_workdir()
     explicit_time = args.duration
     if explicit_time is None and os.environ.get("time") is not None:
         explicit_time = float(os.environ["time"])
