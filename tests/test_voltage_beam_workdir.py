@@ -10,6 +10,7 @@ from frb_search_pipeline.slurm_schedule import (
     LEGACY_VOLTAGE_BEAM_ARTIFACT_ROOTS,
     assert_voltage_beam_slurm_runtime,
     locate_prior_job_artifacts,
+    publish_voltage_beam_products,
     voltage_beam_workdir,
     voltage_beam_workdir_root,
 )
@@ -98,3 +99,53 @@ def test_locate_prior_job_artifacts_checks_legacy_roots(tmp_path):
 def test_legacy_roots_include_prior_locations():
     assert "/lustre/pipeline/teng" in LEGACY_VOLTAGE_BEAM_ARTIFACT_ROOTS
     assert "/fast/pipeline/fast" in LEGACY_VOLTAGE_BEAM_ARTIFACT_ROOTS
+
+
+def test_publish_copies_and_removes_scratch(tmp_path, monkeypatch):
+    workdir = tmp_path / "data02" / "pipeline" / "teng" / "voltage_beam_99"
+    workdir.mkdir(parents=True)
+    (workdir / "out.png").write_text("x")
+    dest_root = tmp_path / "event_pngs"
+    monkeypatch.setenv("VOLTAGE_BEAM_EVENT_PNGS_DIR", str(dest_root))
+    monkeypatch.setenv("SLURM_JOB_ID", "99")
+
+    dest = publish_voltage_beam_products(workdir)
+    assert dest == (dest_root / "voltage_beam_99").resolve()
+    assert (dest / "out.png").read_text() == "x"
+    assert not workdir.exists()
+
+
+def test_publish_skipped_without_slurm(tmp_path, monkeypatch):
+    workdir = tmp_path / "voltage_beam_1"
+    workdir.mkdir()
+    (workdir / "out.png").write_text("x")
+    monkeypatch.delenv("SLURM_JOB_ID", raising=False)
+    monkeypatch.setenv("VOLTAGE_BEAM_EVENT_PNGS_DIR", str(tmp_path / "event_pngs"))
+
+    assert publish_voltage_beam_products(workdir) is None
+    assert workdir.exists()
+
+
+def test_publish_refuses_existing_destination(tmp_path, monkeypatch):
+    workdir = tmp_path / "scratch" / "voltage_beam_42"
+    workdir.mkdir(parents=True)
+    dest_root = tmp_path / "event_pngs"
+    dest = dest_root / "voltage_beam_42"
+    dest.mkdir(parents=True)
+    monkeypatch.setenv("VOLTAGE_BEAM_EVENT_PNGS_DIR", str(dest_root))
+    monkeypatch.setenv("SLURM_JOB_ID", "42")
+
+    with pytest.raises(RuntimeError, match="destination already exists"):
+        publish_voltage_beam_products(workdir)
+    assert workdir.exists()
+
+
+def test_locate_prior_job_artifacts_from_copied_products_line(tmp_path):
+    product = tmp_path / "event_pngs" / "voltage_beam_123"
+    product.mkdir(parents=True)
+    (product / "drx_test.hdf5").write_text("h")
+    stdout = tmp_path / "voltage_beam_pipeline-123.out"
+    stdout.write_text("Pipeline env: dm=1\nCopied products to {0}\n".format(product))
+
+    found = locate_prior_job_artifacts(stdout.read_text(), stdout_path=str(stdout))
+    assert found == str(product.resolve())

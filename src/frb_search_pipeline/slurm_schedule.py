@@ -3,6 +3,7 @@
 import json
 import os
 import re
+import shutil
 import socket
 import subprocess
 import sys
@@ -20,6 +21,7 @@ LEGACY_VOLTAGE_BEAM_ARTIFACT_ROOTS = (
     "/fast/pipeline/fast",
 )
 DEFAULT_VOLTAGE_BEAM_JOB = "/home/pipeline/proj/ovro-alert/slurm/voltage_beam_pipeline.job"
+DEFAULT_VOLTAGE_BEAM_EVENT_PNGS_DIR = "/opt/devel/pipeline/event_pngs"
 DEFAULT_VOLTAGE_PIPELINE_NODELIST = "lwacalim02"
 
 
@@ -55,6 +57,38 @@ def voltage_beam_workdir_root() -> Path:
 def voltage_beam_workdir(job_id: Optional[str] = None) -> Path:
     jid = job_id or os.environ.get("SLURM_JOB_ID", "nojob")
     return voltage_beam_workdir_root() / "voltage_beam_{0}".format(jid)
+
+
+def voltage_beam_event_pngs_dir() -> Optional[Path]:
+    """Web-visible product root on shared storage (lwacalim10); unset to disable."""
+    raw = os.environ.get("VOLTAGE_BEAM_EVENT_PNGS_DIR", DEFAULT_VOLTAGE_BEAM_EVENT_PNGS_DIR)
+    raw = raw.strip()
+    if not raw or raw.lower() in ("0", "false", "no", "off"):
+        return None
+    return Path(raw).resolve()
+
+
+def publish_voltage_beam_products(workdir: Path) -> Optional[Path]:
+    """Copy scratch products to shared storage and remove the scratch workdir."""
+    if not os.environ.get("SLURM_JOB_ID"):
+        return None
+
+    dest_root = voltage_beam_event_pngs_dir()
+    if dest_root is None:
+        return None
+
+    workdir = workdir.resolve()
+    dest = dest_root / workdir.name
+    if dest.exists():
+        raise RuntimeError(
+            "Refusing to publish products: destination already exists: {0}".format(dest)
+        )
+
+    dest_root.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(workdir, dest)
+    shutil.rmtree(workdir)
+    print("Copied products to {0}".format(dest))
+    return dest
 
 
 def assert_voltage_beam_slurm_runtime(workdir: Path) -> None:
@@ -318,6 +352,7 @@ _RESOLVED_FILE_RE = re.compile(
     r"^Resolved voltage file .*?: (?P<path>.+?) \(mtime unix=(?P<mtime>\d+)"
 )
 _MOVED_PRODUCTS_RE = re.compile(r"^Moved products to (?P<path>\S+)")
+_COPIED_PRODUCTS_RE = re.compile(r"^Copied products to (?P<path>\S+)")
 _PIPELINE_RESUME_RE = re.compile(
     r"^Pipeline resume: (?:copying artifacts from|source=)(?P<path>\S+)"
 )
@@ -444,7 +479,11 @@ def locate_prior_job_artifacts(
 
     candidates = []
     for line in content.splitlines():
-        for pattern in (_MOVED_PRODUCTS_RE, _PIPELINE_RESUME_RE):
+        for pattern in (
+            _COPIED_PRODUCTS_RE,
+            _MOVED_PRODUCTS_RE,
+            _PIPELINE_RESUME_RE,
+        ):
             match = pattern.match(line.strip())
             if match:
                 candidates.append(Path(match.group("path")))
@@ -461,6 +500,9 @@ def locate_prior_job_artifacts(
                 or DEFAULT_VOLTAGE_BEAM_WORKDIR_ROOT
             )
             candidates.append(workdir_root / "voltage_beam_{0}".format(job_id))
+            event_pngs = voltage_beam_event_pngs_dir()
+            if event_pngs is not None:
+                candidates.append(event_pngs / "voltage_beam_{0}".format(job_id))
             for legacy in LEGACY_VOLTAGE_BEAM_ARTIFACT_ROOTS:
                 candidates.append(Path(legacy) / "voltage_beam_{0}".format(job_id))
 

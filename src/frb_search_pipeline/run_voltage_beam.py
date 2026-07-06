@@ -16,6 +16,7 @@ from frb_search_pipeline.find_voltage_file import (
 )
 from frb_search_pipeline.slurm_schedule import (
     assert_voltage_beam_slurm_runtime,
+    publish_voltage_beam_products,
     voltage_beam_search_dir,
     voltage_beam_workdir,
 )
@@ -231,4 +232,6 @@ def run_voltage_beam(
     if copy_voltage and staged.is_file():
         staged.unlink()
         print(f"Removed staged voltage copy: {staged}")
+
+    publish_voltage_beam_products(workdir)
     return 0
