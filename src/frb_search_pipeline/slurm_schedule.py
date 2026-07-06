@@ -22,6 +22,7 @@ LEGACY_VOLTAGE_BEAM_ARTIFACT_ROOTS = (
 )
 DEFAULT_VOLTAGE_BEAM_JOB = "/home/pipeline/proj/ovro-alert/slurm/voltage_beam_pipeline.job"
 DEFAULT_VOLTAGE_BEAM_EVENT_PNGS_DIR = "/opt/devel/pipeline/event_pngs"
+DEFAULT_VOLTAGE_BEAM_ARCHIVE_ROOT = "/lustre/pipeline/teng"
 DEFAULT_VOLTAGE_PIPELINE_NODELIST = "lwacalim02"
 
 
@@ -68,27 +69,62 @@ def voltage_beam_event_pngs_dir() -> Optional[Path]:
     return Path(raw).resolve()
 
 
+def voltage_beam_archive_root() -> Optional[Path]:
+    """Final shared-storage destination for job products.
+
+    Defaults to Lustre so results are visible from lwacalim10 (web server).
+    Set VOLTAGE_BEAM_ARCHIVE_ROOT to empty / falsey to skip archiving.
+    """
+    raw = os.environ.get("VOLTAGE_BEAM_ARCHIVE_ROOT", DEFAULT_VOLTAGE_BEAM_ARCHIVE_ROOT)
+    raw = raw.strip()
+    if not raw or raw.lower() in ("0", "false", "no", "off"):
+        return None
+    return Path(raw).resolve()
+
+
+def _force_symlink(src: Path, dst: Path) -> None:
+    """Best-effort equivalent of `ln -sfn src dst` (but refuse to clobber dirs)."""
+    if dst.is_symlink() or dst.is_file():
+        dst.unlink()
+    elif dst.exists():
+        raise RuntimeError(f"Refusing to overwrite existing directory: {dst}")
+    os.symlink(str(src), str(dst))
+
+
 def publish_voltage_beam_products(workdir: Path) -> Optional[Path]:
-    """Copy scratch products to shared storage and remove the scratch workdir."""
+    """Finalize products after a successful run.
+
+    1) Move scratch workdir to shared archive root (default: /lustre/pipeline/teng)
+    2) Symlink /opt/devel/pipeline/event_pngs/voltage_beam_JOBID -> archived dir
+
+    The scratch workdir is removed only after a successful move.
+    """
     if not os.environ.get("SLURM_JOB_ID"):
         return None
 
-    dest_root = voltage_beam_event_pngs_dir()
-    if dest_root is None:
+    archive_root = voltage_beam_archive_root()
+    if archive_root is None:
         return None
 
     workdir = workdir.resolve()
-    dest = dest_root / workdir.name
-    if dest.exists():
+    archived = archive_root / workdir.name
+    if archived.exists():
         raise RuntimeError(
-            "Refusing to publish products: destination already exists: {0}".format(dest)
+            "Refusing to move products: destination already exists: {0}".format(archived)
         )
 
-    dest_root.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(workdir, dest)
-    shutil.rmtree(workdir)
-    print("Copied products to {0}".format(dest))
-    return dest
+    archive_root.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(workdir), str(archived))
+    print("Moved products to {0}".format(archived))
+
+    event_root = voltage_beam_event_pngs_dir()
+    if event_root is not None:
+        event_root.mkdir(parents=True, exist_ok=True)
+        link_path = event_root / workdir.name
+        _force_symlink(archived, link_path)
+        print("Symlinked {0} -> {1}".format(archived, link_path))
+
+    return archived
 
 
 def assert_voltage_beam_slurm_runtime(workdir: Path) -> None:
